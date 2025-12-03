@@ -1,7 +1,6 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -17,11 +16,40 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: theme.tint,
+        tabBarInactiveTintColor: theme.subtleText,
+        tabBarStyle: {
+          position: 'absolute',
+          left: 24,
+          right: 24,
+          bottom: 24,
+          height: 70,
+          paddingHorizontal: 24,
+          paddingBottom: 10,
+          borderRadius: 32,
+          borderWidth: 1,
+          borderColor: theme.cardBorder,
+          backgroundColor: theme.surface,
+          shadowColor: theme.glassShadow,
+          shadowOpacity: 0.35,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 16 },
+          elevation: 12,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: 'Poppins_500Medium',
+          marginBottom: 4,
+        },
+        tabBarItemStyle: {
+          marginTop: 8,
+        },
+        tabBarHideOnKeyboard: true,
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),

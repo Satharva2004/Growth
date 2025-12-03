@@ -230,10 +230,10 @@ export default function GoalDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
           <View style={styles.amountRow}>
             <Text style={[styles.currentAmount, { color: theme.tint }]}>
-              ${current.toFixed(2)}
+              ₹{current.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </Text>
             <Text style={[styles.targetAmount, { color: theme.text }]}>
-              / ${goal.amount.toFixed(2)}
+              / ₹{goal.amount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </Text>
           </View>
           <View style={[styles.progressBarContainer, { backgroundColor: theme.tabIconDefault }]}>
@@ -287,7 +287,7 @@ export default function GoalDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Add Contribution</Text>
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Amount ($)</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Amount (₹)</Text>
             <TextInput
               value={contributionAmount}
               onChangeText={setContributionAmount}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -71,7 +71,7 @@ export default function SignupScreen() {
       Toast.show({
         type: 'success',
         text1: 'Account ready 🌟',
-        text2: 'Your self-improvement studio is prepped. Let’s grow!',
+        text2: "Your self-improvement studio is prepped. Let's grow!",
       });
       setTimeout(() => router.replace('/(tabs)'), 900);
     } catch (error) {
@@ -89,60 +89,72 @@ export default function SignupScreen() {
   return (
     <View style={[styles.background, { backgroundColor: theme.background }]}> 
       <SafeAreaView style={styles.container}> 
-        <View style={styles.heroArea}> 
-          <Text style={[styles.badge, { backgroundColor: theme.badgeBackground, color: theme.badgeText }]}>🌱 Begin & Grow</Text>
-          <Text style={[styles.title, { color: theme.text }]}>Craft your
-            <Text style={[styles.highlight, { color: theme.accentText }]}> self-growth</Text>
-            {'\n'}playbook</Text>
-          <Text style={[styles.subtitle, { color: theme.subtleText }]}>Design habit-powered goals, track mindful progress, and celebrate each upgrade.</Text>
-        </View>
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}> 
-          <View style={styles.fieldGroup}> 
-            <Text style={[styles.label, { color: theme.subtleText }]}>Name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Alex Momentum"
-              placeholderTextColor={theme.inputPlaceholder}
-              autoCapitalize="words"
-              selectionColor={theme.tint}
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
-            />
-          </View>
-          <View style={styles.fieldGroup}> 
-            <Text style={[styles.label, { color: theme.subtleText }]}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@growthstudio.com"
-              placeholderTextColor={theme.inputPlaceholder}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              selectionColor={theme.tint}
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
-            />
-          </View>
-          <View style={styles.fieldGroup}> 
-            <Text style={[styles.label, { color: theme.subtleText }]}>Password</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor={theme.inputPlaceholder}
-              autoCapitalize="none"
-              secureTextEntry
-              selectionColor={theme.tint}
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
-            />
-          </View>
-          <Pressable style={[styles.button, { backgroundColor: theme.primary, opacity: isSubmitting ? 0.7 : 1 }]} onPress={onSubmit} disabled={isSubmitting}>
-            <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'Setting things up…' : 'Launch My Journey'}</Text>
-          </Pressable>
-          <View style={styles.footer}> 
-            <Text style={[styles.footerText, { color: theme.subtleText }]}>Already have a account?</Text>
-            <Link href="/login" style={[styles.link, { color: theme.accentText }]}>Return to your rituals ✨</Link>
-          </View>
-        </View>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.heroArea}> 
+              <Text style={[styles.badge, { backgroundColor: theme.badgeBackground, color: theme.badgeText }]}>🌱 Begin & Grow</Text>
+              <Text style={[styles.title, { color: theme.text }]}>Craft your
+                <Text style={[styles.highlight, { color: theme.accentText }]}> self-growth</Text>
+                {'\n'}playbook</Text>
+              <Text style={[styles.subtitle, { color: theme.subtleText }]}>Design habit-powered goals, track mindful progress, and celebrate each upgrade.</Text>
+            </View>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}> 
+              <View style={styles.fieldGroup}> 
+                <Text style={[styles.label, { color: theme.subtleText }]}>Name</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Alex Momentum"
+                  placeholderTextColor={theme.inputPlaceholder}
+                  autoCapitalize="words"
+                  selectionColor={theme.tint}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                />
+              </View>
+              <View style={styles.fieldGroup}> 
+                <Text style={[styles.label, { color: theme.subtleText }]}>Email</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@growthstudio.com"
+                  placeholderTextColor={theme.inputPlaceholder}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  selectionColor={theme.tint}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                />
+              </View>
+              <View style={styles.fieldGroup}> 
+                <Text style={[styles.label, { color: theme.subtleText }]}>Password</Text>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.inputPlaceholder}
+                  autoCapitalize="none"
+                  secureTextEntry
+                  selectionColor={theme.tint}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                />
+              </View>
+              <Pressable style={[styles.button, { backgroundColor: theme.primary, opacity: isSubmitting ? 0.7 : 1 }]} onPress={onSubmit} disabled={isSubmitting}>
+                <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'Setting things up…' : 'Launch My Journey'}</Text>
+              </Pressable>
+              <View style={styles.footer}> 
+                <Text style={[styles.footerText, { color: theme.subtleText }]}>Already have a account?</Text>
+                <Link href="/login" style={[styles.link, { color: theme.accentText }]}>Return to your rituals ✨</Link>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -154,6 +166,12 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingVertical: 40,
     justifyContent: 'space-between',

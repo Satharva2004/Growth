@@ -98,14 +98,31 @@ export default function CreateGoalScreen() {
 
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: theme.text }]}>Target Amount (₹) *</Text>
-          <TextInput
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="2000"
-            placeholderTextColor="#8c8c8c"
-            keyboardType="decimal-pad"
-            style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.currencySymbol, { color: theme.text }]}>₹</Text>
+            <TextInput
+              value={amount}
+              onChangeText={(text) => {
+                // Allow only numbers and decimal point
+                const formatted = text.replace(/[^0-9.]/g, '');
+                // Handle multiple decimal points
+                if ((formatted.match(/\./g) || []).length > 1) return;
+                setAmount(formatted);
+              }}
+              placeholder="2,000.00"
+              placeholderTextColor="#8c8c8c"
+              keyboardType="decimal-pad"
+              style={[
+                styles.input,
+                { 
+                  borderColor: theme.tabIconDefault, 
+                  color: theme.text,
+                  flex: 1,
+                  paddingLeft: 30,
+                }
+              ]}
+            />
+          </View>
         </View>
 
         <View style={styles.fieldGroup}>
@@ -221,5 +238,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  currencySymbol: {
+    position: 'absolute',
+    left: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    zIndex: 1,
   },
 });

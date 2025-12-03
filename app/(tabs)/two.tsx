@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -206,14 +206,13 @@ const styles = StyleSheet.create({
   cameraWrapper: {
     position: 'relative',
     borderRadius: 22,
-    overflow: 'hidden',
+    overflow: Platform.select({ android: 'visible', default: 'hidden' }),
     height: 280,
     width: '100%',
     backgroundColor: '#000',
   },
   camera: {
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
   cameraLoader: {
     position: 'absolute',

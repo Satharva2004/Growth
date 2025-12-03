@@ -10,6 +10,8 @@ import {
   Animated,
   NativeSyntheticEvent,
   TextInputSubmitEditingEventData,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -113,7 +115,7 @@ export default function GoalsScreen() {
       Toast.show({
         type: 'error',
         text1: 'Goals paused ⚠️',
-        text2: 'We couldn’t refresh your journey. Try again soon.',
+        text2: "We couldn't refresh your journey. Try again soon.",
       });
       console.error('Fetch goals error:', error);
     } finally {
@@ -227,7 +229,7 @@ export default function GoalsScreen() {
         <Text style={[styles.greetingLabel, { color: theme.subtleText }]}>👋 Welcome back</Text>
         <Text style={[styles.greetingTitle, { color: theme.text }]}>Hey {displayName}, design your next breakthrough ✨</Text>
         <Text style={[styles.greetingSubtitle, { color: theme.subtleText }]}>Set brave goals, track mindful progress, and celebrate every self-improvement win.</Text>
-        <View style={styles.metricsRow}>
+        {/* <View style={styles.metricsRow}>
           <View style={[styles.metricCard, { backgroundColor: theme.secondarySurface }]}> 
             <Text style={[styles.metricValue, { color: theme.text }]}>{goals.length}</Text>
             <Text style={[styles.metricLabel, { color: theme.subtleText }]}>Goals in progress</Text>
@@ -236,7 +238,7 @@ export default function GoalsScreen() {
             <Text style={[styles.metricValue, { color: theme.text }]}>{completedGoalsCount}</Text>
             <Text style={[styles.metricLabel, { color: theme.subtleText }]}>Milestones crushed 🎉</Text>
           </View>
-        </View>
+        </View> */}
       </View>
       {/* <View style={[styles.searchContainer, { backgroundColor: theme.secondarySurface, borderColor: theme.cardBorder }]}> 
         <FontAwesome name="search" size={18} color={theme.subtleText} />
@@ -271,52 +273,59 @@ export default function GoalsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }] }>
-      <View style={[styles.header, { backgroundColor: 'transparent' }]}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Dashboard</Text>
-        <Pressable onPress={handleLogout} style={styles.logoutButton}>
-          <FontAwesome name="sign-out" size={24} color={theme.text} />
-        </Pressable>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={0}
+    >
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Dashboard</Text>
+          <Pressable onPress={handleLogout} style={styles.logoutButton}>
+            <FontAwesome name="sign-out" size={24} color={theme.text} />
+          </Pressable>
+        </View>
+        <FlatList
+          data={filteredGoals}
+          keyExtractor={(item) => item.id}
+          renderItem={renderGoalItem}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderListHeader}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => fetchGoals(true)}
+              tintColor={theme.tint}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <FontAwesome name="bullseye" size={64} color={theme.tabIconDefault} />
+              <Text style={[styles.emptyText, { color: theme.text }]}>No goals yet 🌱</Text>
+              <Text style={[styles.emptySubtext, { color: theme.tabIconDefault }]}>Set your first self-improvement goal to launch your journey.</Text>
+            </View>
+          }
+        />
+        <Animated.View
+          style={[
+            styles.fab,
+            {
+              backgroundColor: theme.primary,
+              shadowColor: theme.glassShadow,
+              transform: [{ scale: fabScale }],
+            },
+          ]}>
+          <Pressable
+            style={styles.fabButton}
+            onPressIn={handleFabPressIn}
+            onPressOut={handleFabPressOut}
+            onPress={handleFabPress}>
+            <FontAwesome name="plus" size={24} color={theme.primaryText} />
+          </Pressable>
+        </Animated.View>
       </View>
-      <FlatList
-        data={filteredGoals}
-        keyExtractor={(item) => item.id}
-        renderItem={renderGoalItem}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={renderListHeader}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => fetchGoals(true)}
-            tintColor={theme.tint}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <FontAwesome name="bullseye" size={64} color={theme.tabIconDefault} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>No goals yet 🌱</Text>
-            <Text style={[styles.emptySubtext, { color: theme.tabIconDefault }]}>Set your first self-improvement goal to launch your journey.</Text>
-          </View>
-        }
-      />
-      <Animated.View
-        style={[
-          styles.fab,
-          {
-            backgroundColor: theme.primary,
-            shadowColor: theme.glassShadow,
-            transform: [{ scale: fabScale }],
-          },
-        ]}>
-        <Pressable
-          style={styles.fabButton}
-          onPressIn={handleFabPressIn}
-          onPressOut={handleFabPressOut}
-          onPress={handleFabPress}>
-          <FontAwesome name="plus" size={24} color={theme.primaryText} />
-        </Pressable>
-      </Animated.View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -525,7 +534,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
+    bottom: 110,
     width: 64,
     height: 64,
     borderRadius: 32,

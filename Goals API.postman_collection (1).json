@@ -228,13 +228,12 @@
 					}
 				},
 				"url": {
-					"raw": "https://goals-backend-brown.http://localhost:3000/.app/api/auth/signup",
-					"protocol": "https",
+					"raw": "http://localhost:3000/.app/api/auth/signup",
+					"protocol": "http",
 					"host": [
-						"goals-backend-brown",
-						"http://localhost:3000/",
-						"app"
+						"localhost"
 					],
+					"port": "3000",
 					"path": [
 						"api",
 						"auth",
