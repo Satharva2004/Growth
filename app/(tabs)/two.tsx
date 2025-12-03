@@ -1,417 +1,426 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useIsFocused } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
-import { Text, View } from '@/components/Themed';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function TabTwoScreen() {
+const API_BASE = 'https://goals-backend-brown.vercel.app/api';
+
+interface Goal {
+  id: string;
+  name: string;
+  amount: number;
+  description?: string;
+  category?: string;
+  savedAmount?: number;
+  progress?: number;
+  targetDate?: string;
+  isCompleted?: boolean;
+}
+
+const calculateProgress = (goal: Goal) => {
+  if (typeof goal.progress === 'number') {
+    return goal.progress;
+  }
+  const current = goal.savedAmount || 0;
+  const target = goal.amount || 1;
+  return Math.min((current / target) * 100, 100);
+};
+
+export default function GoalsLibraryScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const [permission, requestPermission] = useCameraPermissions();
-  const isFocused = useIsFocused();
-  const [isPreviewReady, setIsPreviewReady] = useState(false);
+  const { token, logout, refreshSession } = useAuth();
+
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!permission) {
-      requestPermission();
+    fetchGoals();
+  }, []);
+
+  const attemptFetch = async (authToken: string) => {
+    return fetch(`${API_BASE}/goals`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+  };
+
+  const fetchGoals = async (isRefresh = false) => {
+    if (!token) {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
     }
-  }, [permission, requestPermission]);
 
-  const hasCameraPermission = permission?.granted;
+    try {
+      if (isRefresh) setIsRefreshing(true);
+      else setIsLoading(true);
 
-  useEffect(() => {
-    if (!isFocused) {
-      setIsPreviewReady(false);
+      let response = await attemptFetch(token);
+
+      if (response.status === 401) {
+        const newToken = await refreshSession();
+        if (newToken) {
+          response = await attemptFetch(newToken);
+        }
+      }
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          Toast.show({
+            type: 'error',
+            text1: 'Session expired ⏳',
+            text2: 'Please sign back in to review your goals.',
+          });
+          await logout();
+          router.replace('/login');
+          return;
+        }
+        throw new Error('Failed to fetch goals');
+      }
+
+      const data = await response.json();
+      setGoals(data.goals || []);
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to load goals',
+        text2: 'Pull to refresh or try again later.',
+      });
+      console.error('Goals tab fetch error:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [isFocused]);
+  };
 
-  const handlePermissionRequest = useCallback(() => {
-    requestPermission();
-  }, [requestPermission]);
-
-  const metrics = useMemo(
-    () => [
-      { label: 'Focus level', value: 'Steady', emoji: '🎯' },
-      { label: 'Mood today', value: 'Upbeat', emoji: '😊' },
-      { label: 'Energy pulse', value: 'Balanced', emoji: '🔋' },
-    ],
-    []
+  const activeGoals = useMemo(
+    () => goals.filter((goal) => !(goal.isCompleted || goal.progress === 100)),
+    [goals]
   );
 
-  const reflectionPrompts = useMemo(
-    () => [
-      'What micro-win will move me 1% closer today?',
-      'Which habit deserves a mindful upgrade tonight?',
-      'How will I celebrate progress, not perfection?',
-    ],
-    []
+  const completedGoals = useMemo(
+    () => goals.filter((goal) => goal.isCompleted || goal.progress === 100),
+    [goals]
   );
 
-  const microActions = useMemo(
-    () => [
-      '📓 Log a single meaningful win',
-      '🧘‍♂️ Take a 3-minute breathing break',
-      '📝 Revisit weekly goals and adjust',
-      '🤝 Share gratitude with an accountability buddy',
-    ],
-    []
-  );
+  const totalSaved = useMemo(() => goals.reduce((sum, goal) => sum + (goal.savedAmount || 0), 0), [goals]);
+  const totalTarget = useMemo(() => goals.reduce((sum, goal) => sum + (goal.amount || 0), 0), [goals]);
+
+  const renderGoalCard = (goal: Goal) => {
+    const progress = calculateProgress(goal);
+    const current = goal.savedAmount || 0;
+
+    return (
+      <Pressable
+        key={goal.id}
+        style={[styles.goalCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}
+        onPress={() =>
+          router.push({
+            pathname: '/goals/[id]',
+            params: { id: goal.id },
+          })
+        }
+      >
+        <View style={styles.goalHeader}>
+          <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={1}>
+            {goal.name}
+          </Text>
+          {goal.category && (
+            <View style={[styles.categoryPill, { backgroundColor: theme.badgeBackground }]}> 
+              <Text style={[styles.categoryText, { color: theme.badgeText }]}>{goal.category}</Text>
+            </View>
+          )}
+        </View>
+        {goal.description ? (
+          <Text style={[styles.goalDescription, { color: theme.subtleText }]} numberOfLines={2}>
+            {goal.description}
+          </Text>
+        ) : null}
+        <View style={styles.amountRow}>
+          <Text style={[styles.currentAmount, { color: theme.tint }]}>${current.toFixed(2)}</Text>
+          <Text style={[styles.targetAmount, { color: theme.subtleText }]}>/ ${goal.amount.toFixed(2)}</Text>
+        </View>
+        <View style={[styles.progressTrack, { backgroundColor: theme.tabIconDefault }]}> 
+          <View
+            style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.tint }]}
+          />
+        </View>
+        <View style={styles.goalFooter}>
+          <Text style={[styles.progressLabel, { color: theme.subtleText }]}>{progress.toFixed(0)}% complete</Text>
+          {goal.targetDate && (
+            <Text style={[styles.targetDate, { color: theme.subtleText }]}>Due {new Date(goal.targetDate).toLocaleDateString()}</Text>
+          )}
+        </View>
+      </Pressable>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.tint} />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View style={[styles.background, { backgroundColor: theme.background }]}> 
-      <SafeAreaView style={styles.safeArea}> 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={[styles.cameraSection, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}> 
-            {!permission ? (
-              <View style={styles.loadingCard}> 
-                <ActivityIndicator color={theme.tint} size="large" />
-              </View>
-            ) : !hasCameraPermission ? (
-              <View style={[styles.permissionCard, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}> 
-                <Text style={[styles.permissionTitle, { color: theme.text }]}>Camera access needed</Text>
-                <Text style={[styles.permissionSubtitle, { color: theme.subtleText }]}>Glance at your reflection and remind yourself why your goals matter.</Text>
-                <Pressable
-                  style={[styles.permissionButton, { backgroundColor: theme.primary }]}
-                  onPress={handlePermissionRequest}
-                >
-                  <Text style={[styles.permissionButtonText, { color: theme.primaryText }]}>Enable camera</Text>
-                </Pressable>
-              </View>
-            ) : isFocused ? (
-              <View style={styles.cameraWrapper}>
-                <CameraView
-                  style={styles.camera}
-                  facing="front"
-                  active={isFocused}
-                  onCameraReady={() => setIsPreviewReady(true)}
-                />
-                {!isPreviewReady && (
-                  <View style={styles.cameraLoader}>
-                    <ActivityIndicator color="#ffffff" size="large" />
-                    <Text style={styles.cameraLoaderText}>Warming up your camera…</Text>
-                  </View>
-                )}
-                <View style={styles.overlayMessage}>
-                  <Text style={styles.overlayTitle}>See yourself. Why isn’t that goal done yet?</Text>
-                  <Text style={styles.overlaySubtitle}>Refocus, recommit, and show up for future you.</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={[styles.permissionCard, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}> 
-                <Text style={[styles.permissionTitle, { color: theme.text }]}>Camera paused</Text>
-                <Text style={[styles.permissionSubtitle, { color: theme.subtleText }]}>Return to this tab to see your reflection and recommit to your goals.</Text>
-              </View>
-            )}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchGoals(true)}
+            tintColor={theme.tint}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}> 
+          <Text style={[styles.summaryTitle, { color: theme.subtleText }]}>Goals overview</Text>
+          <Text style={[styles.summaryHeadline, { color: theme.text }]}>{goals.length} total goals</Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryMetric}>
+              <Text style={[styles.summaryValue, { color: theme.text }]}>{activeGoals.length}</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>In progress</Text>
+            </View>
+            <View style={styles.summaryMetric}>
+              <Text style={[styles.summaryValue, { color: theme.text }]}>{completedGoals.length}</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>Completed</Text>
+            </View>
+            <View style={styles.summaryMetric}>
+              <Text style={[styles.summaryValue, { color: theme.text }]}>${totalSaved.toFixed(0)}</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>Saved so far</Text>
+            </View>
           </View>
+          <Text style={[styles.summaryHint, { color: theme.subtleText }]}>Total target ${totalTarget.toFixed(0)}</Text>
+        </View>
 
-          <View
-            style={[styles.heroCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}
-          >
-            <Text style={[styles.heroBadge, { color: theme.badgeText, backgroundColor: theme.badgeBackground }]}>Daily reset 🌅</Text>
-            <Text style={[styles.heroTitle, { color: theme.text }]}>Check in with your future self</Text>
-            <Text style={[styles.heroSubtitle, { color: theme.subtleText }]}>Align today’s intentions, track energy, and commit to mindful progress.</Text>
-            <Pressable
-              style={[styles.heroButton, { backgroundColor: theme.primary }]}
-              onPress={() => router.push('/goals/create')}
-            >
-              <Text style={[styles.heroButtonText, { color: theme.primaryText }]}>Design a new goal ✨</Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Active goals</Text>
+            <Pressable onPress={() => router.push('/goals/create')}>
+              <Text style={[styles.sectionAction, { color: theme.tint }]}>New goal +</Text>
             </Pressable>
           </View>
+          {activeGoals.length === 0 ? (
+            <View style={[styles.emptyState, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}> 
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>No active goals</Text>
+              <Text style={[styles.emptySubtitle, { color: theme.subtleText }]}>Tap "New goal" to design your next milestone.</Text>
+            </View>
+          ) : (
+            activeGoals.map(renderGoalCard)
+          )}
+        </View>
 
-          <View style={styles.section}> 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Vitals glance 💡</Text>
-            <View style={styles.metricsRow}>
-              {metrics.map((metric) => (
-                <View
-                  key={metric.label}
-                  style={[styles.metricCard, { backgroundColor: theme.secondarySurface }]}
-                >
-                  <Text style={[styles.metricEmoji, { color: theme.text }]}>{metric.emoji}</Text>
-                  <Text style={[styles.metricValue, { color: theme.text }]}>{metric.value}</Text>
-                  <Text style={[styles.metricLabel, { color: theme.subtleText }]}>{metric.label}</Text>
+        {completedGoals.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Completed goals</Text>
+            {completedGoals.map((goal) => (
+              <View
+                key={goal.id}
+                style={[styles.completedCard, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}
+              >
+                <View style={styles.goalHeader}>
+                  <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={1}>
+                    {goal.name}
+                  </Text>
+                  <Text style={[styles.completedBadge, { color: theme.badgeText, backgroundColor: theme.badgeBackground }]}>Done</Text>
                 </View>
-              ))}
-            </View>
+                <Text style={[styles.progressLabel, { color: theme.subtleText }]}>Target ${goal.amount.toFixed(2)}</Text>
+              </View>
+            ))}
           </View>
-
-          <View style={styles.section}> 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Reflection prompts 🧘‍♀️</Text>
-            <View style={styles.promptList}>
-              {reflectionPrompts.map((prompt) => (
-                <View
-                  key={prompt}
-                  style={[styles.promptCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.promptText, { color: theme.text }]}>{prompt}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.section}> 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Micro-actions for today ✅</Text>
-            <View style={styles.actionList}>
-              {microActions.map((action) => (
-                <Pressable
-                  key={action}
-                  style={[styles.actionPill, { borderColor: theme.cardBorder, backgroundColor: theme.surface }]}
-                  onPress={() => router.push('/(tabs)')}
-                >
-                  <Text style={[styles.actionText, { color: theme.text }]}>{action}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <View style={[styles.tipCard, { backgroundColor: theme.secondarySurface, borderColor: theme.cardBorder }]}> 
-            <Text style={[styles.tipTitle, { color: theme.text }]}>Mindful reminder 💛</Text>
-            <Text style={[styles.tipBody, { color: theme.subtleText }]}>Small, consistent upgrades compound. Celebrate a 1% win before you log off.</Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
+  container: {
     flex: 1,
   },
-  safeArea: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    padding: 24,
+    paddingBottom: 120,
     gap: 28,
   },
-  cameraSection: {
-    borderWidth: 1,
+  summaryCard: {
     borderRadius: 28,
-    padding: 18,
-    shadowOpacity: 0.16,
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 32,
-    elevation: 8,
-  },
-  cameraWrapper: {
-    position: 'relative',
-    borderRadius: 22,
-    overflow: Platform.select({ android: 'visible', default: 'hidden' }),
-    height: 280,
-    width: '100%',
-    backgroundColor: '#000',
-  },
-  camera: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  cameraLoader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  cameraLoaderText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontFamily: 'Poppins_500Medium',
-  },
-  loadingCard: {
     borderWidth: 1,
-    borderRadius: 22,
-    padding: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 160,
-  },
-  overlayMessage: {
-    position: 'absolute',
-    top: 18,
-    left: 18,
-    right: 18,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    transform: [{ rotate: '-2deg' }],
-    gap: 6,
-    pointerEvents: 'none',
-  },
-  overlayTitle: {
-    fontSize: 16,
-    fontFamily: 'Poppins_700Bold',
-    color: '#ffffff',
-    lineHeight: 22,
-  },
-  overlaySubtitle: {
-    fontSize: 13,
-    fontFamily: 'Poppins_500Medium',
-    color: '#f1f1f1',
-  },
-  permissionCard: {
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 22,
-    gap: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 160,
-  },
-  permissionTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-  permissionSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    lineHeight: 20,
-  },
-  permissionButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  permissionButtonText: {
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-    letterSpacing: 0.2,
-  },
-  heroCard: {
-    borderWidth: 1,
-    borderRadius: 28,
     padding: 24,
-    gap: 18,
+    gap: 14,
     shadowOpacity: 0.16,
     shadowOffset: { width: 0, height: 16 },
     shadowRadius: 32,
     elevation: 8,
   },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  summaryTitle: {
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontFamily: 'Poppins_500Medium',
   },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+  summaryHeadline: {
+    fontSize: 26,
     fontFamily: 'Poppins_700Bold',
-    letterSpacing: -0.3,
   },
-  heroSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryMetric: {
+    flex: 1,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontFamily: 'Poppins_700Bold',
+  },
+  summaryLabel: {
+    fontSize: 12,
     fontFamily: 'Poppins_400Regular',
+    opacity: 0.7,
   },
-  heroButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-  heroButtonText: {
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-    letterSpacing: 0.3,
+  summaryHint: {
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
   },
   section: {
     gap: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
-    letterSpacing: -0.1,
   },
-  metricsRow: {
+  sectionAction: {
+    fontSize: 14,
+    fontFamily: 'Poppins_500Medium',
+  },
+  goalCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    gap: 10,
+    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 28,
+    elevation: 10,
+  },
+  goalHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
-    flexWrap: 'wrap',
   },
-  metricCard: {
+  goalTitle: {
     flex: 1,
-    minWidth: 110,
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    gap: 8,
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  metricEmoji: {
     fontSize: 20,
     fontFamily: 'Poppins_600SemiBold',
   },
-  metricValue: {
-    fontSize: 20,
-    fontFamily: 'Poppins_700Bold',
-    letterSpacing: -0.2,
+  categoryPill: {
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  metricLabel: {
+  categoryText: {
+    fontSize: 12,
+    fontFamily: 'Poppins_500Medium',
+  },
+  goalDescription: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'Poppins_400Regular',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  currentAmount: {
+    fontSize: 26,
+    fontFamily: 'Poppins_700Bold',
+  },
+  targetAmount: {
+    fontSize: 16,
+    fontFamily: 'Poppins_500Medium',
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 12,
+  },
+  goalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressLabel: {
     fontSize: 12,
     fontFamily: 'Poppins_400Regular',
-    letterSpacing: 0.2,
   },
-  promptList: {
-    gap: 12,
-  },
-  promptCard: {
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 18,
-  },
-  promptText: {
-    fontSize: 15,
-    lineHeight: 22,
+  targetDate: {
+    fontSize: 12,
     fontFamily: 'Poppins_500Medium',
   },
-  actionList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionPill: {
-    borderWidth: 1,
-    borderRadius: 50,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  actionText: {
-    fontSize: 13,
-    fontFamily: 'Poppins_500Medium',
-  },
-  tipCard: {
+  emptyState: {
     borderWidth: 1,
     borderRadius: 24,
-    padding: 22,
-    gap: 10,
+    padding: 20,
+    gap: 8,
   },
-  tipTitle: {
+  emptyTitle: {
     fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
   },
-  tipBody: {
+  emptySubtitle: {
     fontSize: 14,
-    lineHeight: 21,
     fontFamily: 'Poppins_400Regular',
+    lineHeight: 20,
+  },
+  completedCard: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    gap: 6,
+  },
+  completedBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    fontFamily: 'Poppins_600SemiBold',
   },
 });

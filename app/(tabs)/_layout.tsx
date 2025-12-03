@@ -57,16 +57,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Goals',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bullseye" color={color} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerShown: false,
         }}
       />
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Realization',
-          tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
+          title: 'Goals',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bullseye" color={color} />,
+          headerShown: false,
         }}
       />
     </Tabs>

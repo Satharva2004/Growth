@@ -51,7 +51,7 @@ export default function SignupScreen() {
       }
 
       // Save token from response
-      if (result && result.token) {
+      if (result && (result.accessToken || result.token) && result.refreshToken) {
         const profile = {
           name:
             (result.user && (result.user.name || result.user.fullName)) ||
@@ -62,7 +62,8 @@ export default function SignupScreen() {
             result.email ||
             email.trim(),
         };
-        await authenticate(result.token, profile);
+        const accessToken = result.accessToken || result.token;
+        await authenticate(accessToken, result.refreshToken, profile);
       }
 
       const message =

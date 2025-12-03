@@ -53,7 +53,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/goals/68eb545049a36ae41f992abc/contributions",
+					"raw": "https://goals-backend-brown.vercel.app/api/goals/68eb545049a36ae41f992abc/contributions",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -107,11 +107,11 @@
 					}
 				},
 				"url": {
-					"raw": "https://goals-backend-brown.http://localhost:3000/.app/api/auth/login",
+					"raw": "https://goals-backend-brown.https://goals-backend-brown.vercel.app/.app/api/auth/login",
 					"protocol": "https",
 					"host": [
 						"goals-backend-brown",
-						"http://localhost:3000/",
+						"https://goals-backend-brown.vercel.app/",
 						"app"
 					],
 					"path": [
@@ -176,7 +176,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/goals",
+					"raw": "https://goals-backend-brown.vercel.app/api/goals",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -228,7 +228,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/.app/api/auth/signup",
+					"raw": "https://goals-backend-brown.vercel.app/.app/api/auth/signup",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -285,7 +285,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/goals/68eb545049a36ae41f992abc",
+					"raw": "https://goals-backend-brown.vercel.app/api/goals/68eb545049a36ae41f992abc",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -342,7 +342,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/goals",
+					"raw": "https://goals-backend-brown.vercel.app/api/goals",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -373,7 +373,7 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/goals/68eb545049a36ae41f992abc",
+					"raw": "https://goals-backend-brown.vercel.app/api/goals/68eb545049a36ae41f992abc",
 					"protocol": "http",
 					"host": [
 						"localhost"
