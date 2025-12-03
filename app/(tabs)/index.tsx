@@ -68,6 +68,15 @@ export default function GoalsScreen() {
   const fabRotation = useRef(new Animated.Value(0)).current;
   const fabActionsOpacity = useRef(new Animated.Value(0)).current;
 
+  const totalSpend = useMemo(() => {
+    if (!transactions.length) return 0;
+    return transactions.reduce((sum, txn) => {
+      const isIncome = txn.category?.toLowerCase() === 'income';
+      if (isIncome) return sum;
+      return sum + Math.abs(txn.amount);
+    }, 0);
+  }, [transactions]);
+
   const displayName = useMemo(() => {
     if (user?.name) {
       return user.name.split(' ')[0];
@@ -77,6 +86,13 @@ export default function GoalsScreen() {
     }
     return 'Goal Setter';
   }, [user]);
+
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const filteredTransactions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -184,13 +200,13 @@ export default function GoalsScreen() {
             shadowColor: theme.glassShadow,
           },
         ]}>
-        <Text style={[styles.greetingLabel, { color: theme.subtleText }]}>{getGreeting()} 👋</Text>
+        <Text style={[styles.metricLabel, { color: theme.subtleText }]}>Total spend</Text>
         <View style={styles.greetingRow}>
-          <Text style={[styles.greetingTitle, { color: theme.text }]}>Hey {displayName}</Text>
-          <Image
+          <Text style={[styles.greetingTitle, { color: theme.text }]}>{formatCurrency(totalSpend)}</Text>
+          {/* <Image
             source={require('../../assets/images/profileAsset.png')}
             style={styles.avatar}
-          />
+          /> */}
         </View>
         <Text style={[styles.greetingSubtitle, { color: theme.subtleText }]}>{getFormattedDate()}</Text>
         <Text style={[styles.greetingSubtitle, { color: theme.subtleText, marginTop: 4 }]}> 
@@ -202,7 +218,7 @@ export default function GoalsScreen() {
       >
         <View style={styles.transactionsTopRow}>
           <View>
-            <Text style={[styles.transactionsTitle, { color: theme.text }]}>Ledger</Text>
+            <Text style={[styles.transactionsTitle, { color: theme.text }]}>Recent Transactions</Text>
             <Text style={[styles.transactionsSubtitle, { color: theme.subtleText }]}>Track every rupee, manual or auto.</Text>
           </View>
           <Pressable onPress={() => fetchTransactions(true)} style={styles.refreshButton}>
@@ -311,8 +327,8 @@ export default function GoalsScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <View style={styles.header}> 
         <View>
-          <Text style={[styles.headerEyebrow, { color: theme.subtleText }]}>Welcome back</Text>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>{displayName}</Text>
+          <Text style={[styles.greetingLabel, { color: theme.subtleText }]}>{getGreeting()} 👋</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Hey, {displayName}</Text>
         </View>
         <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <FontAwesome name="sign-out" size={22} color={theme.text} />
