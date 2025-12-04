@@ -55,6 +55,52 @@ const getFormattedDate = () => {
   return `${day} ${month}, ${weekday}`;
 };
 
+const HEATMAP_WEEKS = 30;
+const HEATMAP_DAYS = HEATMAP_WEEKS * 7;
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const HEATMAP_DAY_ORDER = [0, 1, 2, 3, 4, 5, 6];
+const HEATMAP_LABELED_DAYS = new Set([1, 3, 5]);
+const HEATMAP_CELL_SIZE = 16;
+const HEATMAP_CELL_GAP = 6;
+
+const hexToRgba = (hex: string, alpha: number) => {
+  let sanitized = hex.replace('#', '');
+  if (sanitized.length === 3) {
+    sanitized = sanitized
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+  const numericValue = parseInt(sanitized, 16);
+  const r = (numericValue >> 16) & 255;
+  const g = (numericValue >> 8) & 255;
+  const b = numericValue & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const parseTransactionDateString = (value: string) => {
+  const direct = new Date(value);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  const match = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[ ,T]*(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) {
+    return null;
+  }
+
+  const [, day, month, year, hour = '0', minute = '0', second = '0'] = match;
+  const normalizedYear = year.length === 2 ? `20${year}` : year;
+  return new Date(
+    Number(normalizedYear),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
+};
+
 export default function GoalsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
@@ -65,6 +111,8 @@ export default function GoalsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFetchingTransactions, setIsFetchingTransactions] = useState(true);
   const [fabOpen, setFabOpen] = useState(false);
+  const [heatmapVisible, setHeatmapVisible] = useState(false);
+  const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<{ key: string; date: Date; value: number } | null>(null);
   const fabRotation = useRef(new Animated.Value(0)).current;
   const fabActionsOpacity = useRef(new Animated.Value(0)).current;
 
@@ -101,6 +149,111 @@ export default function GoalsScreen() {
       `${txn.name} ${txn.category ?? ''} ${txn.note ?? ''}`.toLowerCase().includes(query)
     );
   }, [transactions, searchQuery]);
+
+  const dailySpendTotals = useMemo<Record<string, number>>(() => {
+    return transactions.reduce<Record<string, number>>((acc, txn) => {
+      if (!txn.transaction_date) return acc;
+      const isIncome = txn.category?.toLowerCase() === 'income';
+      if (isIncome) return acc;
+      const parsedDate = parseTransactionDateString(txn.transaction_date);
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) return acc;
+      const date = new Date(parsedDate);
+      date.setHours(0, 0, 0, 0);
+      const key = date.toISOString().split('T')[0];
+      acc[key] = (acc[key] ?? 0) + Math.abs(txn.amount);
+      return acc;
+    }, {});
+  }, [transactions]);
+
+  const heatmapCells = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cells: { key: string; date: Date; value: number }[] = [];
+    for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const key = date.toISOString().split('T')[0];
+      cells.push({ key, date, value: dailySpendTotals[key] ?? 0 });
+    }
+    return cells;
+  }, [dailySpendTotals]);
+
+  const maxHeatmapValue = useMemo(() => {
+    return heatmapCells.reduce((max, cell) => Math.max(max, cell.value), 0);
+  }, [heatmapCells]);
+
+  const heatmapColumns = useMemo(() => {
+    const columns: { key: string; date: Date; value: number }[][] = [];
+    for (let week = 0; week < HEATMAP_WEEKS; week++) {
+      const start = week * 7;
+      columns.push(heatmapCells.slice(start, start + 7));
+    }
+    return columns;
+  }, [heatmapCells]);
+
+  const heatmapWeekColumns = useMemo(() => {
+    return heatmapColumns.map((column, columnIndex) => {
+      return HEATMAP_DAY_ORDER.map((dayIndex) => {
+        const match = column.find((cell) => cell.date.getDay() === dayIndex);
+        if (match) return match;
+        const referenceDate = column[column.length - 1]?.date ?? new Date();
+        const fallbackDate = new Date(referenceDate);
+        const offset = (dayIndex + 7 - fallbackDate.getDay()) % 7;
+        fallbackDate.setDate(fallbackDate.getDate() + offset);
+        return {
+          key: `placeholder-${columnIndex}-${dayIndex}`,
+          date: fallbackDate,
+          value: 0,
+        };
+      });
+    });
+  }, [heatmapColumns]);
+
+  const heatmapContentWidth = useMemo(() => {
+    if (!heatmapWeekColumns.length) return 0;
+    return heatmapWeekColumns.length * (HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP);
+  }, [heatmapWeekColumns]);
+
+  const heatmapMonthLabels = useMemo(() => {
+    let lastMonth = -1;
+    return heatmapColumns.map((column) => {
+      const anchor = column[column.length - 1];
+      if (!anchor) return '';
+      const month = anchor.date.getMonth();
+      if (month !== lastMonth) {
+        lastMonth = month;
+        return anchor.date.toLocaleString('default', { month: 'short' });
+      }
+      return '';
+    });
+  }, [heatmapColumns]);
+
+  const mostActiveHeatmapDay = useMemo(() => {
+    if (!heatmapCells.length) {
+      return { key: '', date: new Date(), value: 0 };
+    }
+    return heatmapCells.reduce((top, cell) => (cell.value > top.value ? cell : top), heatmapCells[0]);
+  }, [heatmapCells]);
+
+  const formatHeatmapDate = (date: Date) =>
+    date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+
+  const getHeatmapCellColor = (value: number) => {
+    if (!value || maxHeatmapValue === 0) {
+      return theme.secondarySurface;
+    }
+    const intensity = value / maxHeatmapValue;
+    const alpha = 0.3 + intensity * 0.5;
+    return hexToRgba(theme.toastSuccess, Math.min(alpha, 0.9));
+  };
+
+  const handleToggleHeatmap = () => setHeatmapVisible((prev) => !prev);
+
+  useEffect(() => {
+    if (!heatmapVisible) {
+      setSelectedHeatmapCell(null);
+    }
+  }, [heatmapVisible]);
 
   useEffect(() => {
     fetchTransactions();
@@ -189,33 +342,229 @@ export default function GoalsScreen() {
 
   const handleSearchChange = (text: string) => setSearchQuery(text);
 
-  const renderListHeader = () => (
-    <View style={styles.listHeader}>
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: theme.surface,
-            borderColor: theme.cardBorder,
-            shadowColor: theme.glassShadow,
-          },
-        ]}>
-        <Text style={[styles.metricLabel, { color: theme.subtleText }]}>Total spend</Text>
-        <View style={styles.greetingRow}>
-          <Text style={[styles.greetingTitle, { color: theme.text }]}>{formatCurrency(totalSpend)}</Text>
-          {/* <Image
-            source={require('../../assets/images/profileAsset.png')}
-            style={styles.avatar}
-          /> */}
-        </View>
-        <Text style={[styles.greetingSubtitle, { color: theme.subtleText }]}>{getFormattedDate()}</Text>
-        <Text style={[styles.greetingSubtitle, { color: theme.subtleText, marginTop: 4 }]}> 
-          Set brave goals, track mindful progress, and celebrate every self-improvement win.
-        </Text>
-      </View>
+  const renderListHeader = () => {
+    const cardLast4 = Math.abs(Math.round(totalSpend)).toString().slice(-4).padStart(4, '0');
+    const cardNumberBlocks = ['****', '****', '****', cardLast4];
+    const heatmapDayLabels = ['Mon', 'Wed', 'Fri'];
 
-      <View style={[styles.transactionsCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}
-      >
+    return (
+      <View style={styles.listHeader}>
+        <View
+          style={[
+            styles.heroCard,
+            {
+              backgroundColor: theme.tint,
+              borderColor: theme.cardBorder,
+              shadowColor: theme.glassShadow,
+            },
+          ]}>
+          <View
+            style={[
+              styles.cardOverlay,
+              styles.cardOverlayOne,
+              { backgroundColor: theme.primaryText },
+            ]}
+          />
+          <View
+            style={[
+              styles.cardOverlay,
+              styles.cardOverlayTwo,
+              { backgroundColor: theme.primaryText },
+            ]}
+          />
+          <View style={styles.cardTopRow}>
+            <View>
+              <Text style={[styles.metricLabel, { color: theme.primaryText, opacity: 0.75 }]}>Total spend</Text>
+              <Text style={[styles.cardBalanceValue, { color: theme.primaryText }]}>{formatCurrency(totalSpend)}</Text>
+            </View>
+            <View style={styles.cardChipStack}>
+              <Pressable
+                onPress={handleToggleHeatmap}
+                style={({ pressed }) => [
+                  styles.cardChip,
+                  {
+                    backgroundColor: theme.primaryText,
+                    opacity: pressed ? 1 : 0.9,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle spend heatmap"
+                hitSlop={6}
+              >
+                <View style={[styles.cardChipInset, { borderColor: theme.tint }]} />
+              </Pressable>
+              <FontAwesome name="wifi" size={18} color={theme.primaryText} style={styles.cardWaveIcon} />
+            </View>
+          </View>
+          {/* <View style={styles.cardNumberRow}>
+            {cardNumberBlocks.map((block, index) => (
+              <Text key={`${block}-${index}`} style={[styles.cardNumberText, { color: theme.primaryText }]}>
+                {block}
+              </Text>
+            ))}
+          </View> */}
+          <View style={styles.cardFooterRow}>
+            <View>
+              <Text style={[styles.cardFooterLabel, { color: theme.primaryText, opacity: 0.7 }]}>Card holder</Text>
+              <Text style={[styles.cardFooterValue, { color: theme.primaryText }]}>{displayName}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.cardFooterLabel, { color: theme.primaryText, opacity: 0.7 }]}>Updated</Text>
+              <Text style={[styles.cardFooterValue, { color: theme.primaryText }]}>{getFormattedDate()}</Text>
+            </View>
+          </View>
+          <Text style={[styles.cardTagline, { color: theme.primaryText, opacity: 0.75 }]}> 
+            Set brave goals, track mindful progress, and celebrate every self-improvement win.
+          </Text>
+        </View>
+
+        {heatmapVisible && (
+          <View
+            style={[
+              styles.heatmapContainer,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.cardBorder,
+                shadowColor: theme.glassShadow,
+              },
+            ]}
+          >
+            <View style={styles.heatmapHeader}>
+              <View>
+                <Text style={[styles.heatmapTitle, { color: theme.text }]}>Spend activity</Text>
+                <Text style={[styles.heatmapSubtitle, { color: theme.subtleText }]}>
+                  {`Last ${HEATMAP_WEEKS} weeks`}
+                </Text>
+              </View>
+              <Text style={[styles.heatmapSubtitle, { color: theme.subtleText }]}>Tap a day to inspect</Text>
+            </View>
+
+            <View style={styles.heatmapBody}>
+              <View style={styles.heatmapLabelColumn}>
+                {HEATMAP_DAY_ORDER.map((dayIndex) => (
+                  <Text
+                    key={`label-${dayIndex}`}
+                    style={[styles.heatmapRowLabel, { color: theme.subtleText }]}
+                  >
+                    {HEATMAP_LABELED_DAYS.has(dayIndex) ? WEEKDAY_LABELS[dayIndex].slice(0, 3) : ''}
+                  </Text>
+                ))}
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator
+                bounces={false}
+                contentContainerStyle={styles.heatmapScrollContent}
+                style={styles.heatmapScroll}
+              >
+                <View
+                  style={[
+                    styles.heatmapScrollableArea,
+                    {
+                      width: Math.max(
+                        heatmapContentWidth,
+                        HEATMAP_WEEKS * (HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP)
+                      ),
+                    },
+                  ]}
+                >
+                  <View style={styles.heatmapMonthLabels}>
+                    {heatmapWeekColumns.map((_, index) => (
+                      <Text
+                        key={`month-${index}`}
+                        numberOfLines={1}
+                        ellipsizeMode="clip"
+                        style={[
+                          styles.heatmapMonthLabel,
+                          { color: heatmapMonthLabels[index] ? theme.subtleText : 'transparent' },
+                          index === heatmapWeekColumns.length - 1 && styles.heatmapLastColumn,
+                        ]}
+                      >
+                        {heatmapMonthLabels[index]}
+                      </Text>
+                    ))}
+                  </View>
+
+                  <View style={styles.heatmapGrid}>
+                    {HEATMAP_DAY_ORDER.map((dayIndex, rowIndex) => (
+                      <View
+                        key={`heatmap-row-${dayIndex}`}
+                        style={[styles.heatmapRow, rowIndex === HEATMAP_DAY_ORDER.length - 1 && styles.heatmapRowLast]}
+                      >
+                        {heatmapWeekColumns.map((column, columnIndex) => {
+                          const cell = column[rowIndex];
+                          const isSelected = selectedHeatmapCell?.key === cell.key;
+                          return (
+                            <Pressable
+                              key={cell.key}
+                              onPress={() => setSelectedHeatmapCell(cell)}
+                              style={({ pressed }) => [
+                                styles.heatmapCell,
+                                {
+                                  backgroundColor: getHeatmapCellColor(cell.value),
+                                  borderColor: isSelected ? theme.tint : 'transparent',
+                                  opacity: pressed ? 0.7 : 1,
+                                  marginRight:
+                                    columnIndex === heatmapWeekColumns.length - 1 ? 0 : HEATMAP_CELL_GAP,
+                                },
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${formatHeatmapDate(cell.date)} · ${formatCurrency(cell.value)}`}
+                            />
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={styles.heatmapLegendRow}>
+              <Text style={[styles.heatmapLegendLabel, { color: theme.subtleText }]}>Less</Text>
+              {[0, 0.25, 0.5, 0.75, 1].map((step) => (
+                <View
+                  key={`legend-${step}`}
+                  style={[
+                    styles.heatmapLegendDot,
+                    {
+                      backgroundColor:
+                        step === 0
+                          ? theme.secondarySurface
+                          : hexToRgba(theme.toastSuccess, 0.3 + step * 0.4),
+                    },
+                  ]}
+                />
+              ))}
+              <Text style={[styles.heatmapLegendLabel, { color: theme.subtleText }]}>More</Text>
+            </View>
+
+            <View style={styles.heatmapMetaRow}>
+              <View>
+                <Text style={[styles.heatmapMetaLabel, { color: theme.subtleText }]}>Most active day</Text>
+                <Text style={[styles.heatmapMetaValue, { color: theme.text }]}
+                >
+                  {mostActiveHeatmapDay.value
+                    ? `${formatHeatmapDate(mostActiveHeatmapDay.date)} · ${formatCurrency(mostActiveHeatmapDay.value)}`
+                    : 'No spend recorded'}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.heatmapMetaLabel, { color: theme.subtleText }]}>Selected day</Text>
+                <Text style={[styles.heatmapMetaValue, { color: theme.text }]}
+                >
+                  {selectedHeatmapCell
+                    ? `${formatHeatmapDate(selectedHeatmapCell.date)} · ${formatCurrency(selectedHeatmapCell.value)}`
+                    : 'Tap a cell'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.transactionsCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}
+        >
         <View style={styles.transactionsTopRow}>
           <View>
             <Text style={[styles.transactionsTitle, { color: theme.text }]}>Recent Transactions</Text>
@@ -320,8 +669,9 @@ export default function GoalsScreen() {
           </View>
         )}
       </View>
-    </View>
-  );
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
@@ -446,14 +796,217 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroCard: {
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    padding: 20,
+    padding: 24,
+    gap: 18,
+    shadowOpacity: 0.22,
+    shadowOffset: { width: 0, height: 24 },
+    shadowRadius: 42,
+    elevation: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardOverlay: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    opacity: 0.08,
+    borderRadius: 999,
+  },
+  cardOverlayOne: {
+    top: -40,
+    right: -60,
+  },
+  cardOverlayTwo: {
+    bottom: -60,
+    left: -40,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardBalanceValue: {
+    fontSize: 34,
+    fontFamily: 'Poppins_700Bold',
+    marginTop: 6,
+    letterSpacing: -0.5,
+  },
+  cardChipStack: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  cardChip: {
+    width: 42,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.8,
+  },
+  cardChipInset: {
+    width: '70%',
+    height: '60%',
+    borderRadius: 6,
+    borderWidth: 1,
+    opacity: 0.6,
+  },
+  cardWaveIcon: {
+    transform: [{ rotate: '90deg' }],
+  },
+  cardNumberRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cardNumberText: {
+    fontSize: 18,
+    letterSpacing: 4,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  cardFooterLabel: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    fontFamily: 'Poppins_500Medium',
+  },
+  cardFooterValue: {
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
+    marginTop: 4,
+  },
+  cardTagline: {
+    fontSize: 12,
+    fontFamily: 'Poppins_500Medium',
+    lineHeight: 18,
+  },
+  heatmapContainer: {
+    marginTop: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    gap: 16,
+  },
+  heatmapHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  heatmapTitle: {
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  heatmapSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+  },
+  heatmapBody: {
+    paddingTop: 8,
+    paddingBottom: 4,
+    flexDirection: 'row',
+  },
+  heatmapLabelColumn: {
+    gap: 6,
+    paddingRight: 4,
+    alignItems: 'flex-end',
+    width: 34,
+    justifyContent: 'center',
+  },
+  heatmapMonthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 8,
+  },
+  heatmapMonthLabels: {
+    flexDirection: 'row',
+    gap: HEATMAP_CELL_GAP,
+    marginBottom: 6,
+    alignItems: 'center',
+  },
+  heatmapMonthLabel: {
+    minWidth: (HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP) * 2,
+    fontSize: 11,
+    fontFamily: 'Poppins_500Medium',
+    textAlign: 'left',
+  },
+  heatmapLastColumn: {
+    marginRight: 0,
+  },
+  heatmapScroll: {
+    flex: 1,
+  },
+  heatmapScrollContent: {
+    paddingBottom: 4,
+  },
+  heatmapScrollableArea: {
+    flexDirection: 'column',
+    gap: 6,
+  },
+  heatmapGrid: {
+    gap: 8,
+  },
+  heatmapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  heatmapRowLast: {
+    marginBottom: 0,
+  },
+  heatmapRowLabel: {
+    width: 40,
+    fontSize: 12,
+    fontFamily: 'Poppins_500Medium',
+    textAlign: 'right',
+    top: 12,
+  },
+  heatmapRowCells: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  heatmapCell: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  heatmapLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heatmapLegendLabel: {
+    fontSize: 11,
+    fontFamily: 'Poppins_500Medium',
+  },
+  heatmapLegendDot: {
+    width: 20,
+    height: 8,
+    borderRadius: 4,
+  },
+  heatmapMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     gap: 12,
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 18 },
-    shadowRadius: 36,
-    elevation: 8,
+  },
+  heatmapMetaLabel: {
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    fontFamily: 'Poppins_500Medium',
+    
+  },
+  heatmapMetaValue: {
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
+    marginTop: 2,
   },
   greetingLabel: {
     fontSize: 12,
@@ -657,7 +1210,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 16,
