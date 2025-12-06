@@ -7,7 +7,7 @@
     "icon": "./assets/images/unnamed.png",
     "scheme": "Clarity",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/unnamed.png",
       "resizeMode": "contain",
@@ -43,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "00fc7335-948c-46a3-ab6a-3b71786f5dbe"
+        "projectId": "c6af951e-af8e-42a8-9127-5e0695b24843"
       }
     }
   }

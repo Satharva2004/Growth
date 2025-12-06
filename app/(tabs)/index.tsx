@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import Toast from 'react-native-toast-message';
+import { useOfflineLLMBridge } from '@/models/offlineLLM';
 
 
 interface Transaction {
@@ -62,6 +63,7 @@ const HEATMAP_DAY_ORDER = [0, 1, 2, 3, 4, 5, 6];
 const HEATMAP_LABELED_DAYS = new Set([1, 3, 5]);
 const HEATMAP_CELL_SIZE = 16;
 const HEATMAP_CELL_GAP = 6;
+const HEATMAP_MONTH_LABEL_WIDTH = HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP + 12;
 
 const hexToRgba = (hex: string, alpha: number) => {
   let sanitized = hex.replace('#', '');
@@ -113,8 +115,17 @@ export default function GoalsScreen() {
   const [fabOpen, setFabOpen] = useState(false);
   const [heatmapVisible, setHeatmapVisible] = useState(false);
   const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<{ key: string; date: Date; value: number } | null>(null);
+  const [smsStatus, setSmsStatus] = useState<string | null>(null);
   const fabRotation = useRef(new Animated.Value(0)).current;
   const fabActionsOpacity = useRef(new Animated.Value(0)).current;
+
+  const currentMonthEnd = useMemo(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 1, 0);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
+  const currentMonthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
 
   const totalSpend = useMemo(() => {
     if (!transactions.length) return 0;
@@ -166,17 +177,16 @@ export default function GoalsScreen() {
   }, [transactions]);
 
   const heatmapCells = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const anchorDate = new Date(currentMonthEnd);
     const cells: { key: string; date: Date; value: number }[] = [];
     for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
+      const date = new Date(anchorDate);
+      date.setDate(anchorDate.getDate() - i);
       const key = date.toISOString().split('T')[0];
       cells.push({ key, date, value: dailySpendTotals[key] ?? 0 });
     }
     return cells;
-  }, [dailySpendTotals]);
+  }, [dailySpendTotals, currentMonthEnd]);
 
   const maxHeatmapValue = useMemo(() => {
     return heatmapCells.reduce((max, cell) => Math.max(max, cell.value), 0);
@@ -341,6 +351,57 @@ export default function GoalsScreen() {
   };
 
   const handleSearchChange = (text: string) => setSearchQuery(text);
+
+  const handleSmsTransaction = useCallback(
+    (payload: any) => {
+      if (!payload) return;
+      const now = new Date();
+      const smsTransaction: Transaction = {
+        id: `sms-${now.getTime()}`,
+        name: payload.vendor ?? 'SMS transaction',
+        amount: typeof payload.amount === 'number' ? payload.amount : 0,
+        category: payload.type === 'credit' ? 'Income' : 'Expense',
+        transaction_date: payload.timestamp ?? now.toISOString(),
+        note: payload.reference_id ? `Ref: ${payload.reference_id}` : 'Imported from SMS',
+        is_auto: true,
+        payment_method: payload.payment_method ?? undefined,
+        reference_id: payload.reference_id ?? undefined,
+        source: payload.source ?? 'sms',
+        sms_body: payload.raw_text ?? null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      setTransactions((prev) => [smsTransaction, ...prev]);
+      setSmsStatus('Transaction detected from SMS');
+      Toast.show({
+        type: 'success',
+        text1: 'SMS captured',
+        text2: smsTransaction.name,
+      });
+    },
+    []
+  );
+
+  const handleSmsError = useCallback((error: Error | undefined) => {
+    if (!error) return;
+    setSmsStatus('SMS listener error');
+    Toast.show({
+      type: 'error',
+      text1: 'SMS listener failed',
+      text2: error.message,
+    });
+  }, []);
+
+  const handleSmsIgnored = useCallback((message: any, meta?: any) => {
+    setSmsStatus(meta?.reason ?? 'SMS ignored');
+  }, []);
+
+  useOfflineLLMBridge({
+    enabled: !!token,
+    onTransaction: handleSmsTransaction,
+    onError: handleSmsError,
+    onIgnored: handleSmsIgnored,
+  });
 
   const renderListHeader = () => {
     const cardLast4 = Math.abs(Math.round(totalSpend)).toString().slice(-4).padStart(4, '0');
