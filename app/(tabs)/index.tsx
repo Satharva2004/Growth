@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import Toast from 'react-native-toast-message';
-import { useOfflineLLMBridge } from '@/models/offlineLLM';
+import { useSmsTransactionHandler } from '@/utils/smsReader';
 
 
 interface Transaction {
@@ -107,7 +107,7 @@ export default function GoalsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-  const { token, logout, user, refreshSession } = useAuth();
+  const { token, user, refreshSession } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -160,6 +160,36 @@ export default function GoalsScreen() {
       `${txn.name} ${txn.category ?? ''} ${txn.note ?? ''}`.toLowerCase().includes(query)
     );
   }, [transactions, searchQuery]);
+
+  const groupedTransactions = useMemo(() => {
+    const groups: { title: string; data: Transaction[] }[] = [];
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Sort by date descending first
+    const sorted = [...filteredTransactions].sort((a, b) => {
+      const dateA = new Date(a.transaction_date || 0);
+      const dateB = new Date(b.transaction_date || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    sorted.forEach((txn) => {
+      const date = new Date(txn.transaction_date || '');
+      let title = date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      if (date.toDateString() === today.toDateString()) title = 'Today';
+      else if (date.toDateString() === yesterday.toDateString()) title = 'Yesterday';
+
+      const existingGroup = groups.find((g) => g.title === title);
+      if (existingGroup) {
+        existingGroup.data.push(txn);
+      } else {
+        groups.push({ title, data: [txn] });
+      }
+    });
+    return groups;
+  }, [filteredTransactions]);
 
   const dailySpendTotals = useMemo<Record<string, number>>(() => {
     return transactions.reduce<Record<string, number>>((acc, txn) => {
@@ -297,6 +327,9 @@ export default function GoalsScreen() {
       }
 
       if (!response.ok) {
+        console.error('Fetch failed with status:', response.status);
+        const text = await response.text();
+        console.error('Fetch failed with response:', text);
         throw new Error('Failed to fetch transactions');
       }
 
@@ -315,11 +348,7 @@ export default function GoalsScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    Toast.show({ type: 'info', text1: 'See you soon 👋', text2: 'Your growth path awaits when you return.' });
-    await logout();
-    router.replace('/login');
-  };
+
 
   const toggleFab = () => {
     const nextOpen = !fabOpen;
@@ -396,11 +425,26 @@ export default function GoalsScreen() {
     setSmsStatus(meta?.reason ?? 'SMS ignored');
   }, []);
 
-  useOfflineLLMBridge({
+  const handleSmsSuccess = useCallback((apiResponse: any, result: any) => {
+    console.log('🎉 SMS Transaction saved to API:', apiResponse);
+    setSmsStatus('Transaction synced to server');
+    Toast.show({
+      type: 'success',
+      text1: '💰 Transaction Saved!',
+      text2: `₹${result.amount} ${result.type === 'credit' ? 'credited' : 'debited'} - Synced to server`,
+      visibilityTime: 4000,
+    });
+    // Refresh transactions to get the new one from server
+    fetchTransactions(true);
+  }, []);
+
+  // @ts-ignore - JS file inference issue
+  useSmsTransactionHandler({
     enabled: !!token,
     onTransaction: handleSmsTransaction,
     onError: handleSmsError,
     onIgnored: handleSmsIgnored,
+    onSuccess: handleSmsSuccess,
   });
 
   const renderListHeader = () => {
@@ -474,7 +518,7 @@ export default function GoalsScreen() {
               <Text style={[styles.cardFooterValue, { color: theme.primaryText }]}>{getFormattedDate()}</Text>
             </View>
           </View>
-          <Text style={[styles.cardTagline, { color: theme.primaryText, opacity: 0.75 }]}> 
+          <Text style={[styles.cardTagline, { color: theme.primaryText, opacity: 0.75 }]}>
             Set brave goals, track mindful progress, and celebrate every self-improvement win.
           </Text>
         </View>
@@ -566,8 +610,6 @@ export default function GoalsScreen() {
                                   backgroundColor: getHeatmapCellColor(cell.value),
                                   borderColor: isSelected ? theme.tint : 'transparent',
                                   opacity: pressed ? 0.7 : 1,
-                                  marginRight:
-                                    columnIndex === heatmapWeekColumns.length - 1 ? 0 : HEATMAP_CELL_GAP,
                                 },
                               ]}
                               accessibilityRole="button"
@@ -626,124 +668,126 @@ export default function GoalsScreen() {
 
         <View style={[styles.transactionsCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}
         >
-        <View style={styles.transactionsTopRow}>
-          <View>
-            <Text style={[styles.transactionsTitle, { color: theme.text }]}>Recent Transactions</Text>
-            <Text style={[styles.transactionsSubtitle, { color: theme.subtleText }]}>Track every rupee, manual or auto.</Text>
+          <View style={styles.transactionsTopRow}>
+            <View>
+              <Text style={[styles.transactionsTitle, { color: theme.text }]}>Recent Transactions</Text>
+              <Text style={[styles.transactionsSubtitle, { color: theme.subtleText }]}>Track every rupee, manual or auto.</Text>
+            </View>
+            <Pressable onPress={() => fetchTransactions(true)} style={styles.refreshButton}>
+              <FontAwesome name="refresh" size={16} color={theme.tint} />
+              <Text style={[styles.refreshText, { color: theme.tint }]}>Sync</Text>
+            </Pressable>
           </View>
-          <Pressable onPress={() => fetchTransactions(true)} style={styles.refreshButton}>
-            <FontAwesome name="refresh" size={16} color={theme.tint} />
-            <Text style={[styles.refreshText, { color: theme.tint }]}>Sync</Text>
-          </Pressable>
-        </View>
 
-        <View style={[styles.searchContainer, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}
-        >
-          <FontAwesome name="search" size={16} color={theme.subtleText} />
-          <TextInput
-            placeholder="Search transactions"
-            placeholderTextColor={theme.subtleText}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            style={[styles.searchInput, { color: theme.text }]}
-          />
-        </View>
+          <View style={[styles.searchContainer, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}
+          >
+            <FontAwesome name="search" size={16} color={theme.subtleText} />
+            <TextInput
+              placeholder="Search transactions"
+              placeholderTextColor={theme.subtleText}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              style={[styles.searchInput, { color: theme.text }]}
+            />
+          </View>
 
-        {isFetchingTransactions ? (
-          <View style={styles.transactionsEmpty}>
-            <ActivityIndicator size="small" color={theme.tint} />
-            <Text style={[styles.transactionsEmptyText, { color: theme.subtleText }]}>Loading ledger…</Text>
-          </View>
-        ) : filteredTransactions.length === 0 ? (
-          <View style={styles.transactionsEmpty}>
-            <Text style={[styles.transactionsEmptyText, { color: theme.subtleText }]}>
-              {searchQuery ? 'No matches found.' : 'No transactions yet.'}
-            </Text>
-            {!searchQuery && (
-              <Pressable onPress={handleCreateTransaction}>
-                <Text style={[styles.transactionsRefresh, { color: theme.tint }]}>Create one →</Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          <View style={styles.transactionsList}>
-            {filteredTransactions.map((txn) => (
-              <View key={txn.id} style={[styles.transactionCard, { borderColor: theme.cardBorder }]}> 
-                <View style={styles.transactionHeader}>
-                  <View style={styles.transactionTitleRow}>
-                    <Text style={[styles.transactionName, { color: theme.text }]} numberOfLines={1}>
-                      {txn.name}
-                    </Text>
-                    {txn.category && (
-                      <View style={[styles.categoryBadge, { backgroundColor: theme.tint }]}> 
-                        <Text style={styles.categoryText}>{txn.category}</Text>
+          {isFetchingTransactions ? (
+            <View style={styles.transactionsEmpty}>
+              <ActivityIndicator size="small" color={theme.tint} />
+              <Text style={[styles.transactionsEmptyText, { color: theme.subtleText }]}>Loading ledger…</Text>
+            </View>
+          ) : filteredTransactions.length === 0 ? (
+            <View style={styles.transactionsEmpty}>
+              <Text style={[styles.transactionsEmptyText, { color: theme.subtleText }]}>
+                {searchQuery ? 'No matches found.' : 'No transactions yet.'}
+              </Text>
+              {!searchQuery && (
+                <Pressable onPress={handleCreateTransaction}>
+                  <Text style={[styles.transactionsRefresh, { color: theme.tint }]}>Create one →</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <View style={styles.transactionsList}>
+              {groupedTransactions.map((group) => (
+                <View key={group.title}>
+                  <Text style={[styles.sectionHeader, { color: theme.subtleText }]}>{group.title}</Text>
+                  {group.data.map((txn, index) => {
+                    const isCredit = txn.category?.toLowerCase() === 'income' || (txn.amount > 0 && txn.category !== 'Expense');
+                    return (
+                      <View key={txn.id}>
+                        <Pressable
+                          onPress={() => router.push({ pathname: '/transactions/[id]', params: { id: txn.id } })}
+                          style={({ pressed }) => [
+                            styles.transactionRow,
+                            { opacity: pressed ? 0.7 : 1 }
+                          ]}
+                        >
+                          <View style={[styles.transactionIcon, { backgroundColor: isCredit ? '#E0F2F1' : theme.secondarySurface }]}>
+                            <FontAwesome
+                              name={isCredit ? "arrow-down" : "shopping-bag"}
+                              size={18}
+                              color={isCredit ? "#00695C" : theme.text}
+                            />
+                          </View>
+
+                          <View style={styles.transactionContent}>
+                            <View style={styles.transactionTitleRow}>
+                              <Text style={[styles.transactionName, { color: theme.text }]} numberOfLines={1}>
+                                {txn.name}
+                              </Text>
+                              {txn.is_auto && (
+                                <View style={styles.autoTag}>
+                                  <FontAwesome name="bolt" size={8} color={theme.tint} />
+                                  <Text style={[styles.autoTagText, { color: theme.tint }]}>Auto</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.transactionCategory, { color: theme.subtleText }]}>
+                              {txn.category || 'Uncategorized'} · {new Date(txn.transaction_date || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+
+                            {txn.sms_body && (
+                              <Text numberOfLines={1} style={[styles.smsPreview, { color: theme.subtleText }]}>
+                                "{txn.sms_body}"
+                              </Text>
+                            )}
+                          </View>
+
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[styles.transactionAmount, { color: isCredit ? '#00A86B' : theme.text }]}>
+                              {isCredit ? '+' : ''}{formatCurrency(txn.amount)}
+                            </Text>
+                            {txn.payment_method && (
+                              <Text style={[styles.transactionMeta, { color: theme.subtleText, fontSize: 10 }]}>
+                                {txn.payment_method}
+                              </Text>
+                            )}
+                          </View>
+                        </Pressable>
+                        {index < group.data.length - 1 && <View style={[styles.separator, { backgroundColor: theme.cardBorder }]} />}
                       </View>
-                    )}
-                  </View>
-                  <Text style={[styles.transactionAmount, { color: txn.amount >= 0 ? theme.tint : '#ff7676' }]}> 
-                    {txn.amount >= 0 ? '+' : '-'}₹{Math.abs(txn.amount).toFixed(2)}
-                  </Text>
+                    );
+                  })}
                 </View>
-
-                <View style={styles.transactionMetaRow}>
-                  <Text style={[styles.transactionMeta, { color: theme.subtleText }]}> 
-                    {txn.transaction_date ? new Date(txn.transaction_date).toLocaleString() : 'Date not available'}
-                  </Text>
-                  {txn.is_auto && (
-                    <Text style={[styles.autoPill, { color: theme.tint, borderColor: theme.tint }]}>Auto</Text>
-                  )}
-                </View>
-
-                <View style={styles.transactionDetailsGrid}>
-                  {txn.payment_method && (
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: theme.subtleText }]}>Payment</Text>
-                      <Text style={[styles.detailValue, { color: theme.text }]}>{txn.payment_method}</Text>
-                    </View>
-                  )}
-                  {txn.reference_id && (
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: theme.subtleText }]}>Reference</Text>
-                      <Text style={[styles.detailValue, { color: theme.text }]}>{txn.reference_id}</Text>
-                    </View>
-                  )}
-                  {txn.source && (
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: theme.subtleText }]}>Source</Text>
-                      <Text style={[styles.detailValue, { color: theme.text }]}>{txn.source}</Text>
-                    </View>
-                  )}
-                </View>
-
-                {txn.note ? (
-                  <Text style={[styles.transactionNote, { color: theme.subtleText }]}>{txn.note}</Text>
-                ) : null}
-
-                {txn.sms_body ? (
-                  <View style={[styles.smsBubble, { backgroundColor: theme.secondarySurface }]}> 
-                    <Text style={[styles.smsLabel, { color: theme.subtleText }]}>SMS</Text>
-                    <Text style={[styles.smsText, { color: theme.text }]}>{txn.sms_body}</Text>
-                  </View>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}> 
-      <View style={styles.header}> 
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.header}>
         <View>
           <Text style={[styles.greetingLabel, { color: theme.subtleText }]}>{getGreeting()} 👋</Text>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Hey, {displayName}</Text>
         </View>
-        <Pressable onPress={handleLogout} style={styles.logoutButton}>
-          <FontAwesome name="sign-out" size={22} color={theme.text} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {/* Logout moved to Profile tab */}
+        </View>
       </View>
 
       <ScrollView
@@ -986,15 +1030,16 @@ const styles = StyleSheet.create({
   },
   heatmapMonthLabels: {
     flexDirection: 'row',
-    gap: HEATMAP_CELL_GAP,
+    gap: 6, // HEATMAP_CELL_GAP
     marginBottom: 6,
     alignItems: 'center',
   },
   heatmapMonthLabel: {
-    minWidth: (HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP) * 2,
-    fontSize: 11,
+    width: 16, // HEATMAP_CELL_SIZE
+    fontSize: 10,
     fontFamily: 'Poppins_500Medium',
     textAlign: 'left',
+    overflow: 'visible',
   },
   heatmapLastColumn: {
     marginRight: 0,
@@ -1010,12 +1055,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heatmapGrid: {
-    gap: 8,
+    gap: 6, // HEATMAP_CELL_GAP
   },
   heatmapRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 6, // HEATMAP_CELL_GAP
   },
   heatmapRowLast: {
     marginBottom: 0,
@@ -1062,7 +1107,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     fontFamily: 'Poppins_500Medium',
-    
+
   },
   heatmapMetaValue: {
     fontSize: 14,
@@ -1422,5 +1467,60 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sectionHeader: {
+    fontSize: 12,
+    marginTop: 24,
+    marginBottom: 12,
+    fontFamily: 'Poppins_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    paddingLeft: 4,
+  },
+  transactionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 16,
+  },
+  transactionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transactionContent: {
+    flex: 1,
+    gap: 2,
+  },
+  transactionCategory: {
+    fontSize: 12,
+    fontFamily: 'Poppins_500Medium',
+  },
+  smsPreview: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 2,
+    opacity: 0.7,
+  },
+  autoTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  autoTagText: {
+    fontSize: 9,
+    fontFamily: 'Poppins_600SemiBold',
+    textTransform: 'uppercase',
+  },
+  separator: {
+    height: 1,
+    marginLeft: 64, // Align with content, skipping icon
+    opacity: 0.5,
   },
 });
