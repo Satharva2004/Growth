@@ -14,13 +14,18 @@ import Toast from 'react-native-toast-message';
 import SmsService from '../utils/smsService';
 import 'react-native-reanimated';
 
+import * as Notifications from 'expo-notifications';
+import { sendSatisfactionNotification, handleNotificationResponse, setupNotifications } from '@/utils/notificationService';
 import { useColorScheme } from '@/components/useColorScheme';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SatisfactionProvider, useSatisfaction } from '@/contexts/SatisfactionContext';
 
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
+
+// ... (existing code for settings and splash screen)
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -57,48 +62,116 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
-      <Toast topOffset={60} />
+      <SatisfactionProvider>
+        <RootLayoutNav />
+        <Toast topOffset={60} />
+      </SatisfactionProvider>
     </AuthProvider>
   );
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { token } = useAuth();
+  const { promptForTransaction } = useSatisfaction();
+
+  // Setup Notifications on mount
+  useEffect(() => {
+    setupNotifications();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      handleNotificationResponse(response, token).then((result) => {
+        if (result && result.type === 'OPEN_APP' && result.transactionId) {
+          // If user tapped the notification body, prompt them in-app
+          promptForTransaction(result.transactionId);
+        }
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [token, promptForTransaction]);
 
   useEffect(() => {
     const initSmsListener = async () => {
       console.log('🏁 Initializing Global SMS Monitor...');
 
       try {
-        // We need to request permissions first!
-        // Importing PermissionsAndroid to be sure, or we can use SmsService if it has a request method exposed.
-        // Let's us PermissionsAndroid directly here for clarity and reliability.
         const { PermissionsAndroid, Platform, Alert } = require('react-native');
 
         if (Platform.OS === 'android') {
-          console.log('🔐 Requesting SMS Permissions...');
+          // Check permissions first without requesting if possible, but request is safe
           const granted = await PermissionsAndroid.requestMultiple([
             PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
             PermissionsAndroid.PERMISSIONS.READ_SMS
           ]);
 
           const receiveGranted = granted[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED;
-          const readGranted = granted[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED;
-
-          console.log('🔐 Permission Status:', { receiveGranted, readGranted });
-
           if (!receiveGranted) {
-            console.warn('⚠️ RECEIVE_SMS permission denied! SMS listener will not work.');
-            Alert.alert('Permission Missing', 'SMS permissions are required to auto-detect transactions.');
+            console.warn('⚠️ RECEIVE_SMS permission denied!');
             return;
           }
         }
 
         console.log('✅ Permissions confirmed. Starting listener...');
-        const unsubscribe = SmsService.addSmsListener((msg: any) => {
+
+        const unsubscribe = SmsService.addSmsListener(async (msg: any) => {
           console.log('🔔 App Root detected SMS from:', msg.originatingAddress);
-          console.log('📝 SMS Body:', msg.body);
+
+          // Import parser dynamically or use the imported one if safe
+          const { parseTransactionSms } = require('../utils/transactionSmsParser');
+          const TransactionService = require('../utils/transactionService').default;
+
+          const parsed = parseTransactionSms(msg.body);
+
+          if (parsed && parsed.type === 'debit') {
+            console.log('💸 Debit Transaction Detected:', parsed.amount);
+
+            if (token) {
+              try {
+                Toast.show({
+                  type: 'info',
+                  text1: 'New Transaction Detected',
+                  text2: `Processing ${parsed.merchant || 'purchase'}...`
+                });
+
+                // Create transaction on backend
+                const newTxn = await TransactionService.createTransaction(token, {
+                  name: parsed.merchant || 'Unknown Purchase',
+                  amount: parsed.amount,
+                  category: 'Other',
+                  note: `Auto-detected from SMS: ${parsed.rawBody}`,
+                  is_auto: true,
+                  transaction_date: new Date().toISOString()
+                });
+
+                console.log('✅ Transaction created:', newTxn.id || newTxn._id);
+
+                // Trigger Interactive Notification
+                const txnId = newTxn.id || newTxn._id;
+                if (txnId) {
+                  await sendSatisfactionNotification(
+                    txnId,
+                    parsed.merchant || 'Unknown Purchase',
+                    parsed.amount
+                  );
+
+                  // Also prompt in app just in case
+                  promptForTransaction(txnId);
+                }
+              } catch (err) {
+                console.error('❌ Failed to process SMS transaction:', err);
+                Toast.show({
+                  type: 'error',
+                  text1: 'Transaction Error',
+                  text2: 'Could not save detected transaction.'
+                });
+              }
+            } else {
+              console.log('⚠️ User not logged in, skipping transaction creation.');
+            }
+          }
         });
 
         return () => unsubscribe();
@@ -112,7 +185,7 @@ function RootLayoutNav() {
     return () => {
       cleanupPromise.then(cleanup => cleanup && cleanup());
     };
-  }, []);
+  }, [token, promptForTransaction]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -123,7 +196,6 @@ function RootLayoutNav() {
         <Stack.Screen name="goals/create" options={{ title: 'Create Goal' }} />
         <Stack.Screen name="goals/[id]" options={{ title: 'Goal Details' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="sms-test" options={{ title: 'SMS Test', headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#fff' }} />
       </Stack>
     </ThemeProvider>
   );

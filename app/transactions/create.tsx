@@ -12,9 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import Toast from 'react-native-toast-message';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSatisfaction } from '@/contexts/SatisfactionContext';
 
 const API_BASE = 'https://goals-backend-brown.vercel.app/api';
 
@@ -25,6 +27,7 @@ export default function CreateTransactionScreen() {
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const { token } = useAuth();
+  const { promptForTransaction } = useSatisfaction();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -77,12 +80,18 @@ export default function CreateTransactionScreen() {
         throw new Error(message);
       }
 
-      Alert.alert('Success', 'Transaction created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      const newTransactionId = result.transaction?.id || result.transaction?._id || result._id || result.data?._id || result.id;
+
+      Toast.show({
+        type: 'success',
+        text1: 'Transaction Created',
+      });
+
+      if (newTransactionId) {
+        promptForTransaction(newTransactionId);
+      }
+
+      router.back();
     } catch (error) {
       const description = error instanceof Error ? error.message : 'Unexpected error.';
       Alert.alert('Error', description);
@@ -92,7 +101,7 @@ export default function CreateTransactionScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.title, { color: theme.text }]}>Create Transaction</Text>
 
