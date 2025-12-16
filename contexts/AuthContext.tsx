@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 const API_BASE = 'https://goals-backend-brown.vercel.app/api';
 
@@ -27,60 +28,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
 
-  // Safe storage shim: localStorage on web, in-memory on native
-  let memTokenRef: { value: string | null } = (global as any).__authMemTokenRef || { value: null };
-  (global as any).__authMemTokenRef = memTokenRef;
-  let memRefreshTokenRef: { value: string | null } = (global as any).__authMemRefreshTokenRef || { value: null };
-  (global as any).__authMemRefreshTokenRef = memRefreshTokenRef;
-  let memProfileRef: { value: string | null } = (global as any).__authMemProfileRef || { value: null };
-  (global as any).__authMemProfileRef = memProfileRef;
-
   const storage = {
     getItem: async (key: string): Promise<string | null> => {
       if (Platform.OS === 'web') {
         const ls = typeof window !== 'undefined' && (window as any).localStorage ? (window as any).localStorage : null;
         return ls ? ls.getItem(key) : null;
       }
-      if (key === 'authToken') {
-        return memTokenRef.value;
-      }
-      if (key === 'authRefreshToken') {
-        return memRefreshTokenRef.value;
-      }
-      if (key === 'authProfile') {
-        return memProfileRef.value;
-      }
-      return null;
+      return await SecureStore.getItemAsync(key);
     },
     setItem: async (key: string, value: string): Promise<void> => {
       if (Platform.OS === 'web') {
         const ls = typeof window !== 'undefined' && (window as any).localStorage ? (window as any).localStorage : null;
         if (ls) ls.setItem(key, value);
-        else {
-          if (key === 'authToken') memTokenRef.value = value;
-          if (key === 'authRefreshToken') memRefreshTokenRef.value = value;
-          if (key === 'authProfile') memProfileRef.value = value;
-        }
         return;
       }
-      if (key === 'authToken') memTokenRef.value = value;
-      if (key === 'authRefreshToken') memRefreshTokenRef.value = value;
-      if (key === 'authProfile') memProfileRef.value = value;
+      await SecureStore.setItemAsync(key, value);
     },
     removeItem: async (key: string): Promise<void> => {
       if (Platform.OS === 'web') {
         const ls = typeof window !== 'undefined' && (window as any).localStorage ? (window as any).localStorage : null;
         if (ls) ls.removeItem(key);
-        else {
-          if (key === 'authToken') memTokenRef.value = null;
-          if (key === 'authRefreshToken') memRefreshTokenRef.value = null;
-          if (key === 'authProfile') memProfileRef.value = null;
-        }
         return;
       }
-      if (key === 'authToken') memTokenRef.value = null;
-      if (key === 'authRefreshToken') memRefreshTokenRef.value = null;
-      if (key === 'authProfile') memProfileRef.value = null;
+      await SecureStore.deleteItemAsync(key);
     },
   };
 

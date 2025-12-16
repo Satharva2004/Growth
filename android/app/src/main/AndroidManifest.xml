@@ -45,6 +45,8 @@
       </intent-filter>
     </receiver>
 
+    <service android:name=".SmsHeadlessTaskService" />
+
 
   </application>
 </manifest>

@@ -1,5 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useEffect, useRef } from 'react';
 import { useFonts } from 'expo-font';
 import {
   Poppins_400Regular,
@@ -9,7 +10,6 @@ import {
 } from '@expo-google-fonts/poppins';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
 import Toast from 'react-native-toast-message';
 import SmsService from '../utils/smsService';
 import 'react-native-reanimated';
@@ -28,7 +28,7 @@ export {
 // ... (existing code for settings and splash screen)
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
+  // Ensure that reloading on `/ modal` keeps a back button present.
   initialRouteName: 'login',
 };
 
@@ -75,12 +75,17 @@ function RootLayoutNav() {
   const { token } = useAuth();
   const { promptForTransaction } = useSatisfaction();
 
+  const tokenRef = useRef(token);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
   // Setup Notifications on mount
   useEffect(() => {
     setupNotifications();
 
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationResponse(response, token).then((result) => {
+      handleNotificationResponse(response, tokenRef.current).then((result) => {
         if (result && result.type === 'OPEN_APP' && result.transactionId) {
           // If user tapped the notification body, prompt them in-app
           promptForTransaction(result.transactionId);
@@ -91,7 +96,7 @@ function RootLayoutNav() {
     return () => {
       subscription.remove();
     };
-  }, [token, promptForTransaction]);
+  }, [promptForTransaction]);
 
   useEffect(() => {
     const initSmsListener = async () => {
@@ -141,7 +146,7 @@ function RootLayoutNav() {
                   name: parsed.merchant || 'Unknown Purchase',
                   amount: parsed.amount,
                   category: 'Other',
-                  note: `Auto-detected from SMS: ${parsed.rawBody}`,
+                  note: `Auto - detected from SMS: ${parsed.rawBody} `,
                   is_auto: true,
                   transaction_date: new Date().toISOString()
                 });

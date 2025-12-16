@@ -1,6 +1,6 @@
 {
   "name": "Clarity",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "license": "0BSD",
   "version": "1.0.0",
   "scripts": {

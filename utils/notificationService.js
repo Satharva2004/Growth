@@ -68,11 +68,11 @@ export async function setupNotifications() {
 /**
  * Request Permissions
  */
-export async function requestNotificationPermissions() {
+export async function requestNotificationPermissions(requestIfMissing = true) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
+    if (existingStatus !== 'granted' && requestIfMissing) {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
     }
@@ -86,12 +86,18 @@ export async function requestNotificationPermissions() {
  * @param merchantName - Name of the merchant/transaction
  * @param amount - Amount of the transaction
  */
-export async function sendSatisfactionNotification(transactionId, merchantName, amount) {
-    const hasPermission = await requestNotificationPermissions();
+export async function sendSatisfactionNotification(transactionId, merchantName, amount, options = {}) {
+    const { requestPermissions = true } = options;
+    const hasPermission = await requestNotificationPermissions(requestPermissions);
+
     if (!hasPermission) {
-        console.warn('Notification permission not granted');
+        console.warn('Notification permission not granted (Background: ' + !requestPermissions + ')');
         return;
     }
+
+    // Ensure category is set up (idempotent-ish)
+    // We assume setupNotifications was called, or we could call it here?
+    // Better to rely on caller or init.
 
     await Notifications.scheduleNotificationAsync({
         content: {
@@ -100,6 +106,7 @@ export async function sendSatisfactionNotification(transactionId, merchantName, 
             data: { transactionId },
             categoryIdentifier: CATEGORY_ID,
             sound: true,
+            priority: Notifications.AndroidNotificationPriority.MAX, // Ensure high priority
         },
         trigger: null, // Send immediately
     });
@@ -114,7 +121,10 @@ export async function handleNotificationResponse(response, token) {
     const actionId = response.actionIdentifier;
     const { transactionId } = response.notification.request.content.data;
 
-    if (!transactionId || !token) return;
+    // Log the interaction for debugging
+    console.log(`🔔 Notification Response: ${actionId}, TxID: ${transactionId}, HasToken: ${!!token}`);
+
+    if (!transactionId) return;
 
     let rating = null;
     let note = '';
@@ -133,12 +143,19 @@ export async function handleNotificationResponse(response, token) {
             note = 'Maybe';
             break;
         default:
-            // Tapped body, opens app. Maybe we want to show the modal then?
-            // In that case, we return a callback or signal to show modal.
+            // Tapped body, opens app.
             return { type: 'OPEN_APP', transactionId };
     }
 
     if (rating) {
+        if (!token) {
+            console.warn('⚠️ Token missing during notification action. Falling back to in-app prompt.');
+            // Dismiss notification if we're opening the app anyway, or let the app handle it.
+            // But for consistency let's dismiss it.
+            await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+            return { type: 'OPEN_APP', transactionId };
+        }
+
         try {
             await SatisfactionService.createSatisfaction(token, {
                 transactionId,
@@ -146,8 +163,14 @@ export async function handleNotificationResponse(response, token) {
                 note
             });
             console.log(`✅ Recorded satisfaction via notification: ${rating}`);
+
+            // Dismiss notification on success
+            await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+
         } catch (error) {
             console.error('Failed to record satisfaction from notification:', error);
+            // Even if failed, we interacted. Dismiss it.
+            await Notifications.dismissNotificationAsync(response.notification.request.identifier);
         }
     }
 }
