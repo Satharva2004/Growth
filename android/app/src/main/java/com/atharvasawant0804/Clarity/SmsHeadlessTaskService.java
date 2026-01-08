@@ -21,4 +21,24 @@ public class SmsHeadlessTaskService extends HeadlessJsTaskService {
         }
         return null;
     }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            String CHANNEL_ID = "SMS_BACKGROUND_CHANNEL";
+            android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                    CHANNEL_ID,
+                    "Background SMS Service",
+                    android.app.NotificationManager.IMPORTANCE_LOW);
+            getSystemService(android.app.NotificationManager.class).createNotificationChannel(channel);
+
+            android.app.Notification.Builder notification = new android.app.Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Processing SMS")
+                    .setContentText("Clarity is analyzing a new transaction...")
+                    .setSmallIcon(R.mipmap.ic_launcher); // Ensure this resource exists or use a default android one
+
+            startForeground(1, notification.build());
+        }
+    }
 }

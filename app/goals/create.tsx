@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import {
   Alert,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -21,7 +23,7 @@ const CATEGORIES = ['Travel', 'Education', 'Health', 'Savings', 'Shopping', 'Oth
 
 export default function CreateGoalScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
   const router = useRouter();
   const { token } = useAuth();
   const [name, setName] = useState('');
@@ -32,13 +34,13 @@ export default function CreateGoalScreen() {
 
   const onSubmit = async () => {
     if (!name.trim() || !amount.trim()) {
-      Alert.alert('Missing fields', 'Please enter goal name and target amount.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Name and Target Value required.' });
       return;
     }
 
     const targetAmount = parseFloat(amount);
     if (isNaN(targetAmount) || targetAmount <= 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid positive number.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Positive numeric value required.' });
       return;
     }
 
@@ -62,19 +64,16 @@ export default function CreateGoalScreen() {
 
       if (!response.ok) {
         const message =
-          (result && (result.message || result.error)) || 'Failed to create goal.';
+          (result && (result.message || result.error)) || 'Failed to initialize objective.';
         throw new Error(message);
       }
 
-      Alert.alert('Success', 'Goal created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      Toast.show({ type: 'success', text1: 'OBJECTIVE_INIT', text2: 'Goal sequence started.' });
+      setTimeout(() => router.back(), 500);
+
     } catch (error) {
-      const description = error instanceof Error ? error.message : 'Unexpected error.';
-      Alert.alert('Error', description);
+      const description = error instanceof Error ? error.message : 'System error.';
+      Toast.show({ type: 'error', text1: 'INIT_FAIL', text2: description });
     } finally {
       setIsSubmitting(false);
     }
@@ -83,40 +82,44 @@ export default function CreateGoalScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: theme.text }]}>Create New Goal</Text>
+        <View style={styles.header}>
+          <View style={[styles.tag, { borderColor: theme.tint }]}>
+            <Text style={[styles.tagText, { color: theme.tint }]}>NEW_OBJECTIVE</Text>
+          </View>
+          <Text style={[styles.title, { color: theme.text }]}>INITIALIZE_GOAL</Text>
+        </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Goal Name *</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>DESIGNATION</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g., Travel Fund"
-            placeholderTextColor="#8c8c8c"
-            style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+            placeholder="E.G. ORBITAL_STATION"
+            placeholderTextColor={theme.subtleText}
+            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
           />
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Target Amount (₹) *</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>TARGET_VALUE (₹)</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[styles.currencySymbol, { color: theme.text }]}>₹</Text>
             <TextInput
               value={amount}
               onChangeText={(text) => {
-                // Allow only numbers and decimal point
                 const formatted = text.replace(/[^0-9.]/g, '');
-                // Handle multiple decimal points
                 if ((formatted.match(/\./g) || []).length > 1) return;
                 setAmount(formatted);
               }}
-              placeholder="2,000.00"
-              placeholderTextColor="#8c8c8c"
+              placeholder="0.00"
+              placeholderTextColor={theme.subtleText}
               keyboardType="decimal-pad"
               style={[
                 styles.input,
-                { 
-                  borderColor: theme.tabIconDefault, 
+                {
+                  borderColor: theme.text,
                   color: theme.text,
+                  backgroundColor: theme.background,
                   flex: 1,
                   paddingLeft: 30,
                 }
@@ -126,24 +129,24 @@ export default function CreateGoalScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Description</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>PARAMETERS_DESC</Text>
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder="Optional description"
-            placeholderTextColor="#8c8c8c"
+            placeholder="OPTIONAL_DATA..."
+            placeholderTextColor={theme.subtleText}
             multiline
             numberOfLines={3}
             style={[
               styles.input,
               styles.textArea,
-              { borderColor: theme.tabIconDefault, color: theme.text },
+              { borderColor: theme.text, color: theme.text, backgroundColor: theme.background },
             ]}
           />
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Category</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>CATEGORY_TAG</Text>
           <View style={styles.categoryContainer}>
             {CATEGORIES.map((cat) => (
               <Pressable
@@ -151,17 +154,17 @@ export default function CreateGoalScreen() {
                 style={[
                   styles.categoryChip,
                   {
-                    backgroundColor: category === cat ? theme.tint : 'transparent',
-                    borderColor: category === cat ? theme.tint : theme.tabIconDefault,
+                    backgroundColor: category === cat ? theme.primary : 'transparent',
+                    borderColor: category === cat ? theme.tint : theme.text,
                   },
                 ]}
                 onPress={() => setCategory(cat)}>
                 <Text
                   style={[
                     styles.categoryChipText,
-                    { color: category === cat ? '#fff' : theme.text },
+                    { color: category === cat ? theme.primaryText : theme.text },
                   ]}>
-                  {cat}
+                  {cat.toUpperCase()}
                 </Text>
               </Pressable>
             ))}
@@ -169,13 +172,13 @@ export default function CreateGoalScreen() {
         </View>
 
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.button,
-            { backgroundColor: theme.tint, opacity: isSubmitting ? 0.7 : 1 },
+            { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 },
           ]}
           onPress={onSubmit}
           disabled={isSubmitting}>
-          <Text style={styles.buttonText}>{isSubmitting ? 'Creating...' : 'Create Goal'}</Text>
+          <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'INITIALIZING...' : 'EXECUTE_INIT'}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -190,24 +193,42 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 24,
   },
+  header: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  tag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 2,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+  },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontSize: 24,
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 1,
   },
   fieldGroup: {
     gap: 8,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    letterSpacing: 1,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 2, // Sharp
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
+    fontFamily: 'Courier',
   },
   textArea: {
     minHeight: 80,
@@ -219,31 +240,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 2, // Sharp
     borderWidth: 1,
   },
   categoryChipText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   button: {
-    borderRadius: 10,
+    borderRadius: 2, // Sharp
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    borderWidth: 1,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   currencySymbol: {
     position: 'absolute',
-    left: 16,
+    left: 12,
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'Courier',
     zIndex: 1,
   },
 });

@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,7 +42,7 @@ const calculateProgress = (goal: Goal) => {
 
 export default function GoalsLibraryScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? 'dark']; // Force dark/wireframe
   const router = useRouter();
   const { token, logout, refreshSession } = useAuth();
 
@@ -85,8 +86,8 @@ export default function GoalsLibraryScreen() {
         if (response.status === 401) {
           Toast.show({
             type: 'error',
-            text1: 'Session expired ⏳',
-            text2: 'Please sign back in to review your goals.',
+            text1: 'SESSION EXPIRED',
+            text2: 'Re-authenticate to access data.',
           });
           await logout();
           router.replace('/login');
@@ -100,8 +101,8 @@ export default function GoalsLibraryScreen() {
     } catch (error) {
       Toast.show({
         type: 'error',
-        text1: 'Unable to load goals',
-        text2: 'Pull to refresh or try again later.',
+        text1: 'DATA_FETCH_ERROR',
+        text2: 'Connection failed.',
       });
       console.error('Goals tab fetch error:', error);
     } finally {
@@ -130,7 +131,7 @@ export default function GoalsLibraryScreen() {
     return (
       <Pressable
         key={goal.id}
-        style={[styles.goalCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}
+        style={[styles.goalCard, { backgroundColor: theme.surface, borderColor: theme.text }]}
         onPress={() =>
           router.push({
             pathname: '/goals/[id]',
@@ -140,32 +141,29 @@ export default function GoalsLibraryScreen() {
       >
         <View style={styles.goalHeader}>
           <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={1}>
-            {goal.name}
+            {goal.name.toUpperCase()}
           </Text>
           {goal.category && (
-            <View style={[styles.categoryPill, { backgroundColor: theme.badgeBackground }]}> 
-              <Text style={[styles.categoryText, { color: theme.badgeText }]}>{goal.category}</Text>
+            <View style={[styles.categoryPill, { borderColor: theme.text }]}>
+              <Text style={[styles.categoryText, { color: theme.text }]}>{goal.category}</Text>
             </View>
           )}
         </View>
-        {goal.description ? (
-          <Text style={[styles.goalDescription, { color: theme.subtleText }]} numberOfLines={2}>
-            {goal.description}
-          </Text>
-        ) : null}
+
         <View style={styles.amountRow}>
-          <Text style={[styles.currentAmount, { color: theme.tint }]}>${current.toFixed(2)}</Text>
-          <Text style={[styles.targetAmount, { color: theme.subtleText }]}>/ ${goal.amount.toFixed(2)}</Text>
+          <Text style={[styles.currentAmount, { color: theme.text }]}>${current.toFixed(2)}</Text>
+          <Text style={[styles.targetAmount, { color: theme.subtleText }]}> / ${goal.amount.toFixed(2)}</Text>
         </View>
-        <View style={[styles.progressTrack, { backgroundColor: theme.tabIconDefault }]}> 
+
+        <View style={[styles.progressTrack, { backgroundColor: theme.subtleText + '40' }]}>
           <View
-            style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.tint }]}
+            style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.text }]}
           />
         </View>
         <View style={styles.goalFooter}>
-          <Text style={[styles.progressLabel, { color: theme.subtleText }]}>{progress.toFixed(0)}% complete</Text>
+          <Text style={[styles.progressLabel, { color: theme.text }]}>PROG: {progress.toFixed(0)}%</Text>
           {goal.targetDate && (
-            <Text style={[styles.targetDate, { color: theme.subtleText }]}>Due {new Date(goal.targetDate).toLocaleDateString()}</Text>
+            <Text style={[styles.targetDate, { color: theme.subtleText }]}>DUE: {new Date(goal.targetDate).toISOString().split('T')[0]}</Text>
           )}
         </View>
       </Pressable>
@@ -175,7 +173,7 @@ export default function GoalsLibraryScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.tint} />
+        <ActivityIndicator size="large" color={theme.text} />
       </SafeAreaView>
     );
   }
@@ -188,42 +186,47 @@ export default function GoalsLibraryScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => fetchGoals(true)}
-            tintColor={theme.tint}
+            tintColor={theme.text}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder, shadowColor: theme.glassShadow }]}> 
-          <Text style={[styles.summaryTitle, { color: theme.subtleText }]}>Goals overview</Text>
-          <Text style={[styles.summaryHeadline, { color: theme.text }]}>{goals.length} total goals</Text>
+        <View style={[styles.summaryCard, { borderColor: theme.text }]}>
+          <View style={[styles.corner, { top: -1, left: -1, borderTopWidth: 1, borderLeftWidth: 1, borderColor: theme.text }]} />
+          <View style={[styles.corner, { top: -1, right: -1, borderTopWidth: 1, borderRightWidth: 1, borderColor: theme.text }]} />
+
+          <Text style={[styles.summaryTitle, { color: theme.subtleText }]}>SYSTEM_OVERVIEW</Text>
+          <Text style={[styles.summaryHeadline, { color: theme.text }]}>{goals.length} ACTIVE_NODES</Text>
+
+          <View style={[styles.divider, { backgroundColor: theme.text }]} />
+
           <View style={styles.summaryRow}>
             <View style={styles.summaryMetric}>
               <Text style={[styles.summaryValue, { color: theme.text }]}>{activeGoals.length}</Text>
-              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>In progress</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>ACTIVE</Text>
             </View>
             <View style={styles.summaryMetric}>
               <Text style={[styles.summaryValue, { color: theme.text }]}>{completedGoals.length}</Text>
-              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>Completed</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>COMPLETE</Text>
             </View>
             <View style={styles.summaryMetric}>
               <Text style={[styles.summaryValue, { color: theme.text }]}>${totalSaved.toFixed(0)}</Text>
-              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>Saved so far</Text>
+              <Text style={[styles.summaryLabel, { color: theme.subtleText }]}>ACCUMULATED</Text>
             </View>
           </View>
-          <Text style={[styles.summaryHint, { color: theme.subtleText }]}>Total target ${totalTarget.toFixed(0)}</Text>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Active goals</Text>
-            <Pressable onPress={() => router.push('/goals/create')}>
-              <Text style={[styles.sectionAction, { color: theme.tint }]}>New goal +</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>ACTIVE_OPERATIONS</Text>
+            <Pressable onPress={() => router.push('/goals/create')} style={[styles.addButton, { borderColor: theme.text }]}>
+              <Text style={[styles.sectionAction, { color: theme.text }]}>NEW_OP +</Text>
             </Pressable>
           </View>
           {activeGoals.length === 0 ? (
-            <View style={[styles.emptyState, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}> 
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>No active goals</Text>
-              <Text style={[styles.emptySubtitle, { color: theme.subtleText }]}>Tap "New goal" to design your next milestone.</Text>
+            <View style={[styles.emptyState, { borderColor: theme.cardBorder }]}>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>NO_DATA</Text>
+              <Text style={[styles.emptySubtitle, { color: theme.subtleText }]}>Initialize new objective to begin.</Text>
             </View>
           ) : (
             activeGoals.map(renderGoalCard)
@@ -232,19 +235,18 @@ export default function GoalsLibraryScreen() {
 
         {completedGoals.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Completed goals</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>ARCHIVED_OPS</Text>
             {completedGoals.map((goal) => (
               <View
                 key={goal.id}
-                style={[styles.completedCard, { borderColor: theme.cardBorder, backgroundColor: theme.secondarySurface }]}
+                style={[styles.completedCard, { borderColor: theme.cardBorder }]}
               >
                 <View style={styles.goalHeader}>
-                  <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={1}>
-                    {goal.name}
+                  <Text style={[styles.goalTitle, { color: theme.text, textDecorationLine: 'line-through' }]} numberOfLines={1}>
+                    {goal.name.toUpperCase()}
                   </Text>
-                  <Text style={[styles.completedBadge, { color: theme.badgeText, backgroundColor: theme.badgeBackground }]}>Done</Text>
+                  <Text style={[styles.completedBadge, { color: theme.background, backgroundColor: theme.text }]}>[DONE]</Text>
                 </View>
-                <Text style={[styles.progressLabel, { color: theme.subtleText }]}>Target ${goal.amount.toFixed(2)}</Text>
               </View>
             ))}
           </View>
@@ -266,27 +268,33 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingBottom: 120,
-    gap: 28,
+    gap: 32,
   },
   summaryCard: {
-    borderRadius: 28,
     borderWidth: 1,
     padding: 24,
-    gap: 14,
-    shadowOpacity: 0.16,
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 32,
-    elevation: 8,
+    gap: 16,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
   },
   summaryTitle: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   summaryHeadline: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: 'Poppins_700Bold',
+    letterSpacing: 1,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    opacity: 0.5,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -297,17 +305,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryValue: {
-    fontSize: 20,
-    fontFamily: 'Poppins_700Bold',
+    fontSize: 18,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   summaryLabel: {
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
-    opacity: 0.7,
-  },
-  summaryHint: {
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    marginTop: 4,
   },
   section: {
     gap: 16,
@@ -318,22 +323,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 16,
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 1,
+  },
+  addButton: {
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 2,
   },
   sectionAction: {
-    fontSize: 14,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 12,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   goalCard: {
     borderWidth: 1,
-    borderRadius: 24,
     padding: 20,
-    gap: 10,
-    shadowOpacity: 0.14,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 28,
-    elevation: 10,
+    gap: 12,
+    borderRadius: 2,
   },
   goalHeader: {
     flexDirection: 'row',
@@ -343,44 +352,43 @@ const styles = StyleSheet.create({
   },
   goalTitle: {
     flex: 1,
-    fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 18,
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 0.5,
   },
   categoryPill: {
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 2,
   },
   categoryText: {
-    fontSize: 12,
-    fontFamily: 'Poppins_500Medium',
-  },
-  goalDescription: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontFamily: 'Poppins_400Regular',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 4,
   },
   currentAmount: {
-    fontSize: 26,
-    fontFamily: 'Poppins_700Bold',
+    fontSize: 24,
+    fontFamily: 'Courier', // Monospace for numbers
+    fontWeight: 'bold',
   },
   targetAmount: {
-    fontSize: 16,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 14,
+    fontFamily: 'Courier',
   },
   progressTrack: {
-    height: 10,
-    borderRadius: 12,
+    height: 6,
+    borderRadius: 0, // Sharp
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 12,
+    borderRadius: 0,
   },
   goalFooter: {
     flexDirection: 'row',
@@ -388,39 +396,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressLabel: {
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   targetDate: {
-    fontSize: 12,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 10,
+    fontFamily: 'Courier',
   },
   emptyState: {
     borderWidth: 1,
-    borderRadius: 24,
     padding: 20,
     gap: 8,
+    borderStyle: 'dashed',
+    alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 16,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   emptySubtitle: {
-    fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    lineHeight: 20,
+    fontSize: 12,
+    fontFamily: 'Courier',
+    textAlign: 'center',
   },
   completedCard: {
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 18,
-    gap: 6,
+    padding: 16,
+    opacity: 0.6,
   },
   completedBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-    fontFamily: 'Poppins_600SemiBold',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
 });

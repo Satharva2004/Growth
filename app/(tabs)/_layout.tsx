@@ -1,3 +1,4 @@
+
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
@@ -11,12 +12,12 @@ function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  return <FontAwesome size={24} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? 'dark']; // Force dark/wireframe
 
   return (
     <Tabs
@@ -24,40 +25,47 @@ export default function TabLayout() {
         tabBarActiveTintColor: theme.tint,
         tabBarInactiveTintColor: theme.subtleText,
         tabBarStyle: {
-          position: 'absolute',
-          left: 24,
-          right: 24,
-          bottom: 24,
-          height: 70,
-          paddingHorizontal: 24,
-          paddingBottom: 10,
-          borderRadius: 32,
-          borderWidth: 1,
-          borderColor: theme.cardBorder,
-          backgroundColor: theme.surface,
-          shadowColor: theme.glassShadow,
-          shadowOpacity: 0.35,
-          shadowRadius: 24,
-          shadowOffset: { width: 0, height: 16 },
-          elevation: 12,
+          borderTopWidth: 1,
+          borderTopColor: theme.text,
+          backgroundColor: theme.background,
+          height: 80,
+          paddingBottom: 20,
+          paddingTop: 10,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: 'Poppins_500Medium',
-          marginBottom: 4,
+          fontSize: 10,
+          fontFamily: 'Courier',
+          fontWeight: 'bold',
+          letterSpacing: 1,
+          textTransform: 'uppercase',
         },
         tabBarItemStyle: {
-          marginTop: 8,
+          // ensure consistent spacing
         },
         tabBarHideOnKeyboard: true,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
+        headerStyle: {
+          backgroundColor: theme.background,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.text,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        headerTitleStyle: {
+          fontFamily: 'Courier',
+          fontWeight: 'bold',
+          fontSize: 18,
+          color: theme.text,
+          letterSpacing: 1,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'SYSTEM_MAIN',
+          tabBarLabel: 'DASHBOARD',
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerShown: false,
         }}
@@ -65,16 +73,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Goals',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bullseye" color={color} />,
+          title: 'TARGET_DATA',
+          tabBarLabel: 'GOALS',
+          tabBarIcon: ({ color }) => <TabBarIcon name="crosshairs" color={color} />,
           headerShown: false,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          title: 'USER_CONFIG',
+          tabBarLabel: 'PROFILE',
+          tabBarIcon: ({ color }) => <TabBarIcon name="user-secret" color={color} />,
           headerShown: false,
         }}
       />

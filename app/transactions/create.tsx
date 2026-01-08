@@ -1,6 +1,6 @@
+
 import { useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,7 +24,7 @@ const CATEGORIES = ['Food', 'Bills', 'Travel', 'Health', 'Shopping', 'Savings', 
 
 export default function CreateTransactionScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
   const router = useRouter();
   const { token } = useAuth();
   const { promptForTransaction } = useSatisfaction();
@@ -39,18 +39,18 @@ export default function CreateTransactionScreen() {
 
   const onSubmit = async () => {
     if (!name.trim() || !amount.trim()) {
-      Alert.alert('Missing info', 'Please provide a name and amount for the transaction.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Name and Value required.' });
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount)) {
-      Alert.alert('Invalid amount', 'Enter a valid number for amount.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Numeric value required.' });
       return;
     }
 
     if (!token) {
-      Alert.alert('Session expired', 'Please sign in again to create a transaction.');
+      Toast.show({ type: 'error', text1: 'AUTH_ERR', text2: 'Session expired.' });
       return;
     }
 
@@ -84,7 +84,8 @@ export default function CreateTransactionScreen() {
 
       Toast.show({
         type: 'success',
-        text1: 'Transaction Created',
+        text1: 'ENTRY_ADDED',
+        text2: 'Ledger updated successfully.',
       });
 
       if (newTransactionId) {
@@ -93,8 +94,8 @@ export default function CreateTransactionScreen() {
 
       router.back();
     } catch (error) {
-      const description = error instanceof Error ? error.message : 'Unexpected error.';
-      Alert.alert('Error', description);
+      const description = error instanceof Error ? error.message : 'System error.';
+      Toast.show({ type: 'error', text1: 'ENTRY_SUBMIT_FAIL', text2: description });
     } finally {
       setIsSubmitting(false);
     }
@@ -103,21 +104,26 @@ export default function CreateTransactionScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: theme.text }]}>Create Transaction</Text>
+        <View style={styles.header}>
+          <View style={[styles.tag, { borderColor: theme.tint }]}>
+            <Text style={[styles.tagText, { color: theme.tint }]}>NEW_ENTRY</Text>
+          </View>
+          <Text style={[styles.title, { color: theme.text }]}>LEDGER_INPUT</Text>
+        </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Name *</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>DESIGNATION</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g., Weekly groceries"
-            placeholderTextColor={theme.inputPlaceholder}
-            style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+            placeholder="E.G. SUPPLIES"
+            placeholderTextColor={theme.subtleText}
+            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
           />
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Amount *</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>VALUE (₹)</Text>
           <TextInput
             value={amount}
             onChangeText={(text) => {
@@ -126,14 +132,14 @@ export default function CreateTransactionScreen() {
               setAmount(formatted);
             }}
             keyboardType="decimal-pad"
-            placeholder="150.00"
-            placeholderTextColor={theme.inputPlaceholder}
-            style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+            placeholder="0.00"
+            placeholderTextColor={theme.subtleText}
+            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
           />
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Category</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>CATEGORY_TAG</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             {CATEGORIES.map((cat) => (
               <Pressable
@@ -141,14 +147,14 @@ export default function CreateTransactionScreen() {
                 style={[
                   styles.categoryChip,
                   {
-                    backgroundColor: category === cat ? theme.tint : 'transparent',
-                    borderColor: category === cat ? theme.tint : theme.cardBorder,
+                    backgroundColor: category === cat ? theme.primary : 'transparent',
+                    borderColor: category === cat ? theme.tint : theme.text,
                   },
                 ]}
                 onPress={() => setCategory(cat)}>
                 <Text
-                  style={[styles.categoryChipText, { color: category === cat ? '#fff' : theme.text }]}>
-                  {cat}
+                  style={[styles.categoryChipText, { color: category === cat ? theme.primaryText : theme.text }]}>
+                  {cat.toUpperCase()}
                 </Text>
               </Pressable>
             ))}
@@ -156,39 +162,42 @@ export default function CreateTransactionScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Date</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>DATE_STAMP</Text>
           <TextInput
             value={date}
             onChangeText={setDate}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.inputPlaceholder}
-            style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+            placeholderTextColor={theme.subtleText}
+            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
           />
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Note</Text>
+          <Text style={[styles.label, { color: theme.subtleText }]}>ANNOTATION</Text>
           <TextInput
             value={note}
             onChangeText={setNote}
-            placeholder="Optional note"
-            placeholderTextColor={theme.inputPlaceholder}
+            placeholder="OPTIONAL..."
+            placeholderTextColor={theme.subtleText}
             multiline
             numberOfLines={3}
-            style={[styles.input, styles.textArea, { borderColor: theme.tabIconDefault, color: theme.text }]}
+            style={[styles.input, styles.textArea, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
           />
         </View>
 
-        <View style={styles.switchRow}>
-          <Text style={[styles.label, { color: theme.text }]}>Recurring/auto deduction?</Text>
-          <Switch value={isAuto} onValueChange={setIsAuto} thumbColor={theme.tint} />
+        <View style={[styles.switchRow, { borderColor: theme.text }]}>
+          <Text style={[styles.label, { color: theme.text }]}>AUTO_DEDUCT_CYCLE</Text>
+          <Switch value={isAuto} onValueChange={setIsAuto} thumbColor={theme.primary} trackColor={{ false: theme.subtleText, true: theme.text }} />
         </View>
 
         <Pressable
-          style={[styles.button, { backgroundColor: theme.tint, opacity: isSubmitting ? 0.7 : 1 }]}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }
+          ]}
           onPress={onSubmit}
           disabled={isSubmitting}>
-          <Text style={styles.buttonText}>{isSubmitting ? 'Creating...' : 'Save transaction'}</Text>
+          <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'PROCESSING...' : 'EXECUTE_ENTRY'}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -200,64 +209,84 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
-    gap: 20,
+    padding: 24,
+    gap: 24,
+  },
+  header: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  tag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 2,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: 'Poppins_700Bold',
+    letterSpacing: 1,
   },
   fieldGroup: {
     gap: 8,
   },
   label: {
-    fontSize: 14,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    letterSpacing: 1,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 2,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontFamily: 'Poppins_500Medium',
-    fontSize: 15,
+    fontFamily: 'Courier',
+    fontSize: 16,
   },
   textArea: {
     minHeight: 90,
     textAlignVertical: 'top',
   },
   categoryRow: {
-    gap: 10,
+    gap: 8,
     paddingVertical: 4,
   },
   categoryChip: {
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    borderRadius: 2,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
   categoryChipText: {
-    fontSize: 13,
-    fontFamily: 'Poppins_500Medium',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 2,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 12,
   },
   button: {
-    borderRadius: 20,
+    borderRadius: 2,
     paddingVertical: 16,
     alignItems: 'center',
+    marginTop: 12,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });

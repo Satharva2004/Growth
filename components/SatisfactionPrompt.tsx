@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
     Modal,
@@ -29,7 +30,7 @@ export default function SatisfactionPrompt({
     isSubmitting = false,
 }: SatisfactionPromptProps) {
     const colorScheme = useColorScheme();
-    const theme = Colors[colorScheme ?? 'light'];
+    const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
     const [scaleAnim] = useState(new Animated.Value(0));
 
     useEffect(() => {
@@ -62,60 +63,72 @@ export default function SatisfactionPrompt({
                         styles.container,
                         {
                             backgroundColor: theme.background,
+                            borderColor: theme.text,
                             transform: [{ scale: scaleAnim }],
                         },
                     ]}
                 >
                     <View style={styles.content}>
-                        <View style={[styles.iconContainer, { backgroundColor: theme.tint + '20' }]}>
-                            <Ionicons name="cart-outline" size={32} color={theme.tint} />
+                        <View style={[styles.headerBox, { borderColor: theme.text }]}>
+                            <Text style={[styles.title, { color: theme.text }]}>
+                                TRANSACTION_DETECTED
+                            </Text>
                         </View>
 
-                        <Text style={[styles.title, { color: theme.text }]}>
-                            Purchase detected!
-                        </Text>
-                        <Text style={[styles.subtitle, { color: theme.text }]}>
-                            Was this purchase worth it?
-                        </Text>
+                        <View style={styles.promptBox}>
+                            <Text style={[styles.subtitle, { color: theme.text }]}>
+                                ASSESS_VALUE_METRIC:
+                            </Text>
+                            <Text style={[styles.question, { color: theme.subtleText }]}>
+                                WAS THE PURCHASE WORTH IT?
+                            </Text>
+                        </View>
 
                         {isSubmitting ? (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="large" color={theme.tint} />
+                            <View style={[styles.loadingContainer, { borderColor: theme.text }]}>
+                                <ActivityIndicator size="small" color={theme.text} />
+                                <Text style={[styles.loadingText, { color: theme.text }]}>PROCESSING...</Text>
                             </View>
                         ) : (
                             <View style={styles.optionsContainer}>
                                 <Pressable
-                                    style={[styles.optionButton, { backgroundColor: '#FF6B6B' }]}
+                                    style={[styles.optionButton, { borderColor: theme.text }]}
                                     onPress={() => onSelectOption(1)}
                                     testID="option-no"
                                 >
-                                    <Ionicons name="thumbs-down" size={24} color="#FFF" />
-                                    <Text style={styles.optionText}>No</Text>
+                                    <View style={[styles.iconBox, { borderColor: theme.text }]}>
+                                        <Ionicons name="close" size={16} color={theme.text} />
+                                    </View>
+                                    <Text style={[styles.optionText, { color: theme.text }]}>NEGATIVE</Text>
                                 </Pressable>
 
                                 <Pressable
-                                    style={[styles.optionButton, { backgroundColor: '#FFD93D' }]}
+                                    style={[styles.optionButton, { borderColor: theme.text }]}
                                     onPress={() => onSelectOption(3)}
                                     testID="option-maybe"
                                 >
-                                    <Ionicons name="help" size={24} color="#333" />
-                                    <Text style={[styles.optionText, { color: '#333' }]}>Maybe</Text>
+                                    <View style={[styles.iconBox, { borderColor: theme.text }]}>
+                                        <Ionicons name="remove" size={16} color={theme.text} />
+                                    </View>
+                                    <Text style={[styles.optionText, { color: theme.text }]}>NEUTRAL</Text>
                                 </Pressable>
 
                                 <Pressable
-                                    style={[styles.optionButton, { backgroundColor: '#4D96FF' }]}
+                                    style={[styles.optionButton, { borderColor: theme.text }]}
                                     onPress={() => onSelectOption(5)}
                                     testID="option-yes"
                                 >
-                                    <Ionicons name="thumbs-up" size={24} color="#FFF" />
-                                    <Text style={styles.optionText}>Yes</Text>
+                                    <View style={[styles.iconBox, { borderColor: theme.text }]}>
+                                        <Ionicons name="checkmark" size={16} color={theme.text} />
+                                    </View>
+                                    <Text style={[styles.optionText, { color: theme.text }]}>POSITIVE</Text>
                                 </Pressable>
                             </View>
                         )}
 
                         <Pressable style={styles.closeButton} onPress={onClose}>
-                            <Text style={[styles.closeText, { color: theme.tabIconDefault }]}>
-                                Ask me later
+                            <Text style={[styles.closeText, { color: theme.subtleText }]}>
+                                [ DEFER_ASSESSMENT ]
                             </Text>
                         </Pressable>
                     </View>
@@ -130,73 +143,90 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.4)',
+        backgroundColor: 'rgba(0,0,0,0.8)', // Darker overlay
     },
     container: {
-        width: width * 0.85,
-        borderRadius: 24,
+        width: width * 0.9,
+        borderWidth: 1,
+        borderRadius: 2, // Sharp
         overflow: 'hidden',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
     },
     content: {
         padding: 24,
         alignItems: 'center',
+        gap: 20,
     },
-    iconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
+    headerBox: {
+        borderWidth: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        marginBottom: 8,
     },
     title: {
-        fontSize: 20,
-        fontFamily: 'Poppins_700Bold',
-        marginBottom: 8,
-        textAlign: 'center',
+        fontSize: 14,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
+        letterSpacing: 1,
+    },
+    promptBox: {
+        alignItems: 'center',
+        gap: 4,
     },
     subtitle: {
-        fontSize: 16,
-        fontFamily: 'Poppins_400Regular',
-        opacity: 0.8,
-        marginBottom: 24,
-        textAlign: 'center',
+        fontSize: 12,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
+    },
+    question: {
+        fontSize: 10,
+        fontFamily: 'Courier',
+        textTransform: 'uppercase',
     },
     optionsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
-        gap: 12,
+        gap: 8,
     },
     optionButton: {
         flex: 1,
-        paddingVertical: 16,
-        borderRadius: 16,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderRadius: 2,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        elevation: 2,
+    },
+    iconBox: {
+        width: 24,
+        height: 24,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     optionText: {
-        fontSize: 14,
-        fontFamily: 'Poppins_600SemiBold',
-        color: '#FFF',
+        fontSize: 10,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
     },
     loadingContainer: {
         height: 80,
+        width: '100%',
         justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        gap: 8,
+    },
+    loadingText: {
+        fontFamily: 'Courier',
+        fontSize: 10,
     },
     closeButton: {
-        marginTop: 20,
+        marginTop: 8,
         padding: 8,
     },
     closeText: {
-        fontSize: 14,
-        fontFamily: 'Poppins_500Medium',
+        fontSize: 10,
+        fontFamily: 'Courier',
     },
 });

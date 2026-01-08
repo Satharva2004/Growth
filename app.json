@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Clarity",
-    "slug": "MyApp",
+    "slug": "clarity",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/unnamed.png",

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Toast from 'react-native-toast-message';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -43,7 +45,7 @@ interface Goal {
 
 export default function GoalDetailScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { token } = useAuth();
@@ -80,11 +82,11 @@ export default function GoalDetailScreen() {
         setGoal(foundGoal);
         setEditedDescription(foundGoal.description || '');
       } else {
-        Alert.alert('Error', 'Goal not found');
+        Toast.show({ type: 'error', text1: 'ERROR_404', text2: 'Goal node not found.' });
         router.back();
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load goal details.');
+      Toast.show({ type: 'error', text1: 'FETCH_ERR', text2: 'Data link failed.' });
       console.error('Fetch goal error:', error);
     } finally {
       setIsLoading(false);
@@ -96,7 +98,6 @@ export default function GoalDetailScreen() {
 
     try {
       setIsSubmitting(true);
-      // Use PATCH for partial update (only description)
       const response = await fetch(`${API_BASE}/goals/${id}`, {
         method: 'PATCH',
         headers: {
@@ -110,11 +111,11 @@ export default function GoalDetailScreen() {
 
       if (!response.ok) throw new Error('Failed to update goal');
 
-      Alert.alert('Success', 'Goal updated successfully!');
+      Toast.show({ type: 'success', text1: 'UPDATE_SUCCESS', text2: 'Parameters updated.' });
       setIsEditing(false);
       await fetchGoal();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update goal.');
+      Toast.show({ type: 'error', text1: 'UPDATE_ERR', text2: 'Save failed.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -122,13 +123,13 @@ export default function GoalDetailScreen() {
 
   const handleAddContribution = async () => {
     if (!contributionAmount.trim()) {
-      Alert.alert('Missing amount', 'Please enter a contribution amount.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Amount required.' });
       return;
     }
 
     const amount = parseFloat(contributionAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid positive number.');
+      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Positive value required.' });
       return;
     }
 
@@ -148,22 +149,22 @@ export default function GoalDetailScreen() {
 
       if (!response.ok) throw new Error('Failed to add contribution');
 
-      Alert.alert('Success', 'Contribution added!');
+      Toast.show({ type: 'success', text1: 'CONTRIBUTION_REC', text2: 'Value added to stack.' });
       setContributionAmount('');
       setContributionNote('');
       await fetchGoal();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add contribution.');
+      Toast.show({ type: 'error', text1: 'TRANSACTION_FAIL', text2: 'Contribution rejected.' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    Alert.alert('Delete Goal', 'Are you sure you want to delete this goal?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('TERMINATE_GOAL', 'Confirm deletion of objective node?', [
+      { text: 'CANCEL', style: 'cancel' },
       {
-        text: 'Delete',
+        text: 'CONFIRM DELETE',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -176,11 +177,10 @@ export default function GoalDetailScreen() {
 
             if (!response.ok) throw new Error('Failed to delete goal');
 
-            Alert.alert('Success', 'Goal deleted successfully!', [
-              { text: 'OK', onPress: () => router.back() },
-            ]);
+            Toast.show({ type: 'success', text1: 'TERMINATED', text2: 'Objective removed.' });
+            setTimeout(() => router.back(), 500);
           } catch (error) {
-            Alert.alert('Error', 'Failed to delete goal.');
+            Toast.show({ type: 'error', text1: 'DELETE_FAIL', text2: 'Could not remove node.' });
           }
         },
       },
@@ -191,7 +191,7 @@ export default function GoalDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.tint} />
+          <ActivityIndicator size="large" color={theme.text} />
         </View>
       </SafeAreaView>
     );
@@ -201,7 +201,7 @@ export default function GoalDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.centerContainer}>
-          <Text style={[styles.errorText, { color: theme.text }]}>Goal not found</Text>
+          <Text style={[styles.errorText, { color: theme.text }]}>NODE_NOT_FOUND</Text>
         </View>
       </SafeAreaView>
     );
@@ -214,43 +214,46 @@ export default function GoalDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
+          <View style={[styles.tag, { borderColor: theme.tint }]}>
+            <Text style={[styles.tagText, { color: theme.tint }]}>OBJECTIVE_DETAIL</Text>
+          </View>
           <View style={styles.headerTop}>
-            <Text style={[styles.goalName, { color: theme.text }]}>{goal.name}</Text>
+            <Text style={[styles.goalName, { color: theme.text }]}>{goal.name.toUpperCase()}</Text>
             <Pressable onPress={handleDelete} style={styles.deleteButton}>
-              <FontAwesome name="trash" size={20} color="#ff3b30" />
+              <FontAwesome name="trash" size={16} color={theme.text} />
             </Pressable>
           </View>
           {goal.category && (
-            <View style={[styles.categoryBadge, { backgroundColor: theme.tint }]}>
-              <Text style={styles.categoryText}>{goal.category}</Text>
+            <View style={[styles.categoryBadge, { borderColor: theme.text }]}>
+              <Text style={[styles.categoryText, { color: theme.text }]}>{goal.category.toUpperCase()}</Text>
             </View>
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
+        <View style={[styles.card, { borderColor: theme.text, backgroundColor: theme.background }]}>
           <View style={styles.amountRow}>
-            <Text style={[styles.currentAmount, { color: theme.tint }]}>
-              ₹{current.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            <Text style={[styles.currentAmount, { color: theme.text }]}>
+              ₹{current.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
-            <Text style={[styles.targetAmount, { color: theme.text }]}>
-              / ₹{goal.amount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            <Text style={[styles.targetAmount, { color: theme.subtleText }]}>
+              / ₹{goal.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
-          <View style={[styles.progressBarContainer, { backgroundColor: theme.tabIconDefault }]}>
+          <View style={[styles.progressBarContainer, { borderColor: theme.text }]}>
             <View
-              style={[styles.progressBar, { width: `${progress}%`, backgroundColor: theme.tint }]}
+              style={[styles.progressBar, { width: `${progress}%`, backgroundColor: theme.primary }]}
             />
           </View>
           <Text style={[styles.progressText, { color: theme.text }]}>
-            {progress.toFixed(0)}% complete
+            COMPLETION: {progress.toFixed(0)}%
           </Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
+        <View style={[styles.card, { borderColor: theme.text, backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Description</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>PARAMETERS_DESC</Text>
             <Pressable onPress={() => setIsEditing(!isEditing)}>
-              <FontAwesome name={isEditing ? 'times' : 'edit'} size={18} color={theme.tint} />
+              <FontAwesome name={isEditing ? 'times' : 'edit'} size={14} color={theme.text} />
             </Pressable>
           </View>
           {isEditing ? (
@@ -258,87 +261,87 @@ export default function GoalDetailScreen() {
               <TextInput
                 value={editedDescription}
                 onChangeText={setEditedDescription}
-                placeholder="Add a description..."
-                placeholderTextColor="#8c8c8c"
+                placeholder="EDIT_PARAMETERS..."
+                placeholderTextColor={theme.subtleText}
                 multiline
                 numberOfLines={3}
                 style={[
                   styles.input,
                   styles.textArea,
-                  { borderColor: theme.tabIconDefault, color: theme.text },
+                  { borderColor: theme.text, color: theme.text, backgroundColor: theme.background },
                 ]}
               />
               <Pressable
-                style={[styles.button, { backgroundColor: theme.tint, opacity: isSubmitting ? 0.7 : 1 }]}
+                style={({ pressed }) => [styles.button, { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }]}
                 onPress={handleUpdateDescription}
                 disabled={isSubmitting}>
-                <Text style={styles.buttonText}>
-                  {isSubmitting ? 'Saving...' : 'Save Description'}
+                <Text style={[styles.buttonText, { color: theme.primaryText }]}>
+                  {isSubmitting ? 'SAVING...' : 'UPDATE_DESC'}
                 </Text>
               </Pressable>
             </>
           ) : (
             <Text style={[styles.descriptionText, { color: theme.text }]}>
-              {goal.description || 'No description'}
+              {goal.description || 'NO_DATA'}
             </Text>
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Add Contribution</Text>
+        <View style={[styles.card, { borderColor: theme.text, backgroundColor: theme.background }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>INJECT_FUNDS</Text>
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Amount (₹)</Text>
+            <Text style={[styles.label, { color: theme.subtleText }]}>VALUE (₹)</Text>
             <TextInput
               value={contributionAmount}
               onChangeText={setContributionAmount}
-              placeholder="250"
-              placeholderTextColor="#8c8c8c"
+              placeholder="0.00"
+              placeholderTextColor={theme.subtleText}
               keyboardType="decimal-pad"
-              style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+              style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
             />
           </View>
           <View style={styles.fieldGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Note (optional)</Text>
+            <Text style={[styles.label, { color: theme.subtleText }]}>NOTE_REF</Text>
             <TextInput
               value={contributionNote}
               onChangeText={setContributionNote}
-              placeholder="e.g., Booked flights"
-              placeholderTextColor="#8c8c8c"
-              style={[styles.input, { borderColor: theme.tabIconDefault, color: theme.text }]}
+              placeholder="OPTIONAL..."
+              placeholderTextColor={theme.subtleText}
+              style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
             />
           </View>
           <Pressable
-            style={[styles.button, { backgroundColor: theme.tint, opacity: isSubmitting ? 0.7 : 1 }]}
+            style={({ pressed }) => [styles.button, { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }]}
             onPress={handleAddContribution}
             disabled={isSubmitting}>
-            <Text style={styles.buttonText}>
-              {isSubmitting ? 'Adding...' : 'Add Contribution'}
+            <Text style={[styles.buttonText, { color: theme.primaryText }]}>
+              {isSubmitting ? 'PROCESSING...' : 'EXECUTE_TRANSFER'}
             </Text>
           </Pressable>
         </View>
 
         {goal.contributions && goal.contributions.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.tabIconDefault }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Contribution History</Text>
+          <View style={[styles.card, { borderColor: theme.text, backgroundColor: theme.background }]}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>TRANSACTION_LOG</Text>
             {goal.contributions.map((contribution, index) => (
               <View
                 key={index}
                 style={[
                   styles.contributionItem,
-                  { borderBottomColor: theme.tabIconDefault },
+                  { borderBottomColor: theme.text },
                   index === goal.contributions!.length - 1 && styles.lastContribution,
                 ]}>
                 <View style={styles.contributionRow}>
-                  <Text style={[styles.contributionAmount, { color: theme.tint }]}>
+                  <Text style={[styles.contributionAmount, { color: theme.text }]}>
                     +${contribution.amount.toFixed(2)}
                   </Text>
-                  <Text style={[styles.contributionDate, { color: theme.text }]}>
+                  <Text style={[styles.contributionDate, { color: theme.subtleText }]}>
                     {new Date(contribution.date).toLocaleDateString()}
                   </Text>
                 </View>
                 {contribution.note && (
-                  <Text style={[styles.contributionNote, { color: theme.text }]}>
-                    {contribution.note}
+                  <Text style={[styles.contributionNote, { color: theme.subtleText }]}>
+                    REF: {contribution.note.toUpperCase()}
                   </Text>
                 )}
               </View>
@@ -360,119 +363,138 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 16,
+    padding: 24,
     paddingBottom: 40,
+    gap: 24,
   },
   header: {
-    marginBottom: 16,
+    gap: 12,
+  },
+  tag: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 2,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
   goalName: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 1,
     flex: 1,
   },
   deleteButton: {
     padding: 8,
+    borderWidth: 1,
+    borderColor: 'transparent', // just for hit area
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 2,
+    borderWidth: 1,
   },
   categoryText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 10,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 2,
     padding: 20,
-    marginBottom: 16,
     borderWidth: 1,
+    gap: 16,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 16,
   },
   currentAmount: {
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 32,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   targetAmount: {
-    fontSize: 20,
+    fontSize: 16,
+    fontFamily: 'Courier',
     marginLeft: 8,
-    opacity: 0.6,
   },
   progressBarContainer: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 8,
+    height: 12,
+    borderRadius: 0,
+    borderWidth: 1,
+    padding: 1,
   },
   progressBar: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 0,
   },
   progressText: {
-    fontSize: 14,
-    opacity: 0.7,
+    fontSize: 12,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 14,
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 0.5,
   },
   descriptionText: {
     fontSize: 14,
+    fontFamily: 'Courier',
     lineHeight: 20,
   },
   fieldGroup: {
-    marginBottom: 16,
+    gap: 6,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontSize: 10,
+    fontFamily: 'Courier',
+    letterSpacing: 1,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 2,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
+    fontFamily: 'Courier',
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   button: {
-    borderRadius: 10,
+    borderRadius: 2,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   contributionItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
+    gap: 4,
   },
   lastContribution: {
     borderBottomWidth: 0,
@@ -481,21 +503,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
   },
   contributionAmount: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
   contributionDate: {
-    fontSize: 12,
-    opacity: 0.6,
+    fontSize: 10,
+    fontFamily: 'Courier',
   },
   contributionNote: {
-    fontSize: 14,
-    opacity: 0.8,
+    fontSize: 12,
+    fontFamily: 'Courier',
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 16,
+    fontFamily: 'Courier',
+    fontWeight: 'bold',
   },
 });

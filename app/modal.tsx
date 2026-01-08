@@ -1,17 +1,31 @@
-import { StatusBar } from 'expo-status-bar';
-import { Platform, StyleSheet } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import { StatusBar } from 'expo-status-bar';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export default function ModalScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Modal</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/modal.tsx" />
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
 
-      {/* Use a light status bar on iOS to account for the black space above the modal */}
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.card, { borderColor: theme.text }]}>
+        <Text style={[styles.title, { color: theme.text }]}>SYSTEM_INFO</Text>
+        <View style={[styles.separator, { backgroundColor: theme.text }]} />
+
+        <Text style={[styles.infoText, { color: theme.text }]}>
+          CLARITY_V1.0
+        </Text>
+        <Text style={[styles.infoSubtext, { color: theme.subtleText }]}>
+          SECURE_CONNECTION_ESTABLISHED
+        </Text>
+        <Text style={[styles.infoSubtext, { color: theme.subtleText }]}>
+          ALL_SYSTEMS_NOMINAL
+        </Text>
+      </View>
+
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
     </View>
   );
@@ -23,13 +37,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  card: {
+    borderWidth: 1,
+    padding: 40,
+    alignItems: 'center',
+    gap: 16,
+  },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
+    letterSpacing: 2,
   },
   separator: {
-    marginVertical: 30,
     height: 1,
-    width: '80%',
+    width: '100%',
+    opacity: 0.5,
   },
+  infoText: {
+    fontFamily: 'Courier',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  infoSubtext: {
+    fontFamily: 'Courier',
+    fontSize: 10,
+  }
 });

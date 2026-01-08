@@ -198,6 +198,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="landing" options={{ headerShown: false }} />
         <Stack.Screen name="goals/create" options={{ title: 'Create Goal' }} />
         <Stack.Screen name="goals/[id]" options={{ title: 'Goal Details' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

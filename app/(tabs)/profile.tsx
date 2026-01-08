@@ -1,5 +1,6 @@
+
 import { useMemo } from 'react';
-import { StyleSheet, View, Text, Pressable, Image, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,37 +8,27 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import Toast from 'react-native-toast-message';
 
-const getGreeting = () => {
-    const now = new Date();
-    const hour = now.getHours();
-
-    if (hour >= 5 && hour < 12) return "Good Morning";
-    if (hour >= 12 && hour < 17) return "Good Afternoon";
-    if (hour >= 17 && hour < 23) return "Good Evening";
-    return "NightOwl";
-};
-
 export default function ProfileScreen() {
     const colorScheme = useColorScheme();
-    const theme = Colors[colorScheme ?? 'light'];
+    const theme = Colors[colorScheme ?? 'dark']; // Force dark/wireframe
     const router = useRouter();
     const { logout, user } = useAuth();
 
     const displayName = useMemo(() => {
         if (user?.name) return user.name;
         if (user?.email) return user.email.split('@')[0];
-        return 'Goal Setter';
+        return 'USER_01';
     }, [user]);
 
     const initials = useMemo(() => {
-        if (!displayName) return 'GS';
+        if (!displayName) return 'ID';
         const parts = displayName.split(' ');
         if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
         return displayName.slice(0, 2).toUpperCase();
     }, [displayName]);
 
     const handleLogout = async () => {
-        Toast.show({ type: 'info', text1: 'See you soon 👋', text2: 'Your growth path awaits when you return.' });
+        Toast.show({ type: 'info', text1: 'SESSION TERMINATED', text2: 'Secure disconnect complete.' });
         await logout();
         router.replace('/login');
     };
@@ -45,51 +36,70 @@ export default function ProfileScreen() {
     return (
         <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
             <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Profile</Text>
-            </View>
-
-            <View style={styles.profileCard}>
-                <View style={[styles.avatarContainer, { backgroundColor: theme.tint }]}>
-                    <Text style={styles.avatarText}>{initials}</Text>
+                <View style={[styles.tag, { borderColor: theme.text }]}>
+                    <Text style={[styles.tagText, { color: theme.text }]}>USER_CONFIG</Text>
                 </View>
-                <Text style={[styles.userName, { color: theme.text }]}>{displayName}</Text>
-                <Text style={[styles.userEmail, { color: theme.subtleText }]}>{user?.email}</Text>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>PROFILE_DATA</Text>
             </View>
 
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>Preferences</Text>
-                {/* Placeholder for future preferences */}
-                <View style={[styles.row, { borderBottomColor: theme.cardBorder }]}>
-                    <View style={styles.rowIcon}>
-                        <FontAwesome name="moon-o" size={20} color={theme.text} />
+            <View style={[styles.profileCard, { borderColor: theme.text, backgroundColor: theme.background }]}>
+                <View style={styles.cardHeader}>
+                    <View style={[styles.avatarContainer, { borderColor: theme.text }]}>
+                        <Text style={[styles.avatarText, { color: theme.text }]}>{initials}</Text>
                     </View>
-                    <Text style={[styles.rowLabel, { color: theme.text }]}>Dark Mode</Text>
-                    <Text style={[styles.rowValue, { color: theme.subtleText }]}>System</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.userName, { color: theme.text }]}>{displayName.toUpperCase()}</Text>
+                        <Text style={[styles.userEmail, { color: theme.subtleText }]}>{user?.email?.toUpperCase()}</Text>
+                        <Text style={[styles.idLabel, { color: theme.subtleText }]}>ID: {Math.random().toString(36).substr(2, 8).toUpperCase()}</Text>
+                    </View>
+                </View>
+
+                {/* Decorative Tech Lines */}
+                <View style={[styles.techLine, { backgroundColor: theme.text }]} />
+            </View>
+
+            <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>SYSTEM_PREFERENCES</Text>
+
+                <View style={[styles.row, { borderBottomColor: theme.text }]}>
+                    <View style={styles.rowIcon}>
+                        <FontAwesome name="terminal" size={16} color={theme.text} />
+                    </View>
+                    <Text style={[styles.rowLabel, { color: theme.text }]}>INTERFACE_MODE</Text>
+                    <Text style={[styles.rowValue, { color: theme.text }]}>DARK_WIRE</Text>
+                </View>
+
+                <View style={[styles.row, { borderBottomColor: theme.text }]}>
+                    <View style={styles.rowIcon}>
+                        <FontAwesome name="bell-o" size={16} color={theme.text} />
+                    </View>
+                    <Text style={[styles.rowLabel, { color: theme.text }]}>NOTIFICATIONS</Text>
+                    <Text style={[styles.rowValue, { color: theme.text }]}>ACTIVE</Text>
                 </View>
             </View>
 
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>Account</Text>
+                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>SESSION_CONTROL</Text>
                 <Pressable
                     onPress={handleLogout}
                     style={({ pressed }) => [
                         styles.menuItem,
-                        { backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 }
+                        { borderColor: theme.text, opacity: pressed ? 0.7 : 1 }
                     ]}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor: '#FFEBEE' }]}>
-                        <FontAwesome name="sign-out" size={20} color="#D32F2F" />
+                    <View style={[styles.iconContainer, { borderColor: theme.text }]}>
+                        <FontAwesome name="power-off" size={16} color={theme.text} />
                     </View>
                     <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: '#D32F2F' }]}>Log Out</Text>
-                        <Text style={[styles.menuSubtitle, { color: theme.subtleText }]}>Sign out of your account</Text>
+                        <Text style={[styles.menuTitle, { color: theme.text }]}>TERMINATE_SESSION</Text>
+                        <Text style={[styles.menuSubtitle, { color: theme.subtleText }]}>Disconnect from local node</Text>
                     </View>
-                    <FontAwesome name="chevron-right" size={14} color={theme.subtleText} />
+                    <FontAwesome name="chevron-right" size={12} color={theme.text} />
                 </Pressable>
             </View>
 
             <View style={styles.footer}>
-                <Text style={[styles.versionText, { color: theme.subtleText }]}>Clarity v1.0.0</Text>
+                <Text style={[styles.versionText, { color: theme.subtleText }]}>CLARITY_SYS v1.0.0 // STABLE</Text>
             </View>
         </ScrollView>
     );
@@ -98,55 +108,82 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
+        padding: 24,
     },
     header: {
         paddingTop: 40,
-        marginBottom: 24,
+        marginBottom: 32,
+        gap: 8,
+    },
+    tag: {
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 2,
+    },
+    tagText: {
+        fontSize: 10,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
     },
     headerTitle: {
         fontSize: 32,
         fontFamily: 'Poppins_700Bold',
+        letterSpacing: 1,
     },
     profileCard: {
-        alignItems: 'center',
+        borderWidth: 1,
+        padding: 20,
         marginBottom: 40,
+        borderRadius: 2,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 20,
     },
     avatarContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 60,
+        height: 60,
+        borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
+        borderRadius: 2, // Square-ish
     },
     avatarText: {
-        fontSize: 36,
-        color: '#fff',
-        fontFamily: 'Poppins_600SemiBold',
+        fontSize: 20,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
     },
     userName: {
-        fontSize: 24,
-        fontFamily: 'Poppins_600SemiBold',
-        marginBottom: 4,
+        fontSize: 18,
+        fontFamily: 'Poppins_600SemiBold', // Keep name readable
+        letterSpacing: 0.5,
     },
     userEmail: {
-        fontSize: 14,
-        fontFamily: 'Poppins_400Regular',
+        fontSize: 12,
+        fontFamily: 'Courier',
+        marginBottom: 4,
+    },
+    idLabel: {
+        fontSize: 10,
+        fontFamily: 'Courier',
+        opacity: 0.7,
+    },
+    techLine: {
+        height: 1,
+        width: '100%',
+        marginTop: 20,
+        opacity: 0.5,
     },
     section: {
         marginBottom: 30,
     },
     sectionTitle: {
-        fontSize: 12,
-        fontFamily: 'Poppins_600SemiBold',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
+        fontSize: 10,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
         marginBottom: 12,
         marginLeft: 4,
     },
@@ -154,26 +191,30 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 20,
+        borderWidth: 1,
+        borderRadius: 2,
         gap: 16,
     },
     iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderRadius: 2,
     },
     menuTextContainer: {
         flex: 1,
     },
     menuTitle: {
-        fontSize: 16,
-        fontFamily: 'Poppins_500Medium',
+        fontSize: 14,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
     },
     menuSubtitle: {
-        fontSize: 12,
-        fontFamily: 'Poppins_400Regular',
+        fontSize: 10,
+        fontFamily: 'Courier',
+        marginTop: 2,
     },
     row: {
         flexDirection: 'row',
@@ -181,27 +222,30 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderBottomWidth: 1,
         paddingHorizontal: 4,
+        gap: 12,
     },
     rowIcon: {
-        width: 40,
+        width: 24,
         alignItems: 'center',
     },
     rowLabel: {
         flex: 1,
-        fontSize: 16,
-        fontFamily: 'Poppins_500Medium',
+        fontSize: 14,
+        fontFamily: 'Courier',
+        fontWeight: 'bold',
     },
     rowValue: {
-        fontSize: 14,
-        fontFamily: 'Poppins_400Regular',
+        fontSize: 12,
+        fontFamily: 'Courier',
     },
     footer: {
         alignItems: 'center',
         marginTop: 20,
-        marginBottom: 40,
+        marginBottom: 60,
     },
     versionText: {
-        fontSize: 12,
-        fontFamily: 'Poppins_400Regular',
+        fontSize: 10,
+        fontFamily: 'Courier',
+        opacity: 0.5,
     },
 });
