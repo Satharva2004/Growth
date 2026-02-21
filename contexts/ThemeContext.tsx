@@ -13,13 +13,13 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-    colorScheme: 'dark', // Default to dark ideally
+    colorScheme: 'light',
     toggleTheme: () => { },
 });
 
 export const CustomThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const systemScheme = _useColorScheme();
-    const [theme, setTheme] = useState<Theme>('dark'); // Default start with dark as per aesthetic
+    const [theme, setTheme] = useState<Theme>('light');
 
     const toggleTheme = () => {
         setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));

@@ -16,7 +16,7 @@ import { API_BASE } from '@/constants/Config';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark'];
+  const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const { login: authenticate } = useAuth();
 
@@ -38,6 +38,7 @@ export default function LoginScreen() {
       setIsGoogleSubmitting(true);
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
+      const googleUser = (userInfo as any).data?.user || (userInfo as any).user;
       const { idToken } = (userInfo as any).data || userInfo;
 
       if (!idToken) throw new Error('No ID token found');
@@ -56,8 +57,12 @@ export default function LoginScreen() {
 
       if (result && (result.accessToken || result.token) && result.refreshToken) {
         const profile = {
-          name: (result.user && (result.user.name || result.user.fullName)) || result.name || undefined,
-          email: (result.user && (result.user.email || result.user.username)) || result.email || undefined,
+          name: (result.user && (result.user.name || result.user.fullName)) || result.name || googleUser?.name || undefined,
+          email: (result.user && (result.user.email || result.user.username)) || result.email || googleUser?.email || undefined,
+          photo: (result.user && (result.user.photo || result.user.picture || result.user.avatar)) ||
+            result.photo || result.picture ||
+            googleUser?.photo || googleUser?.picture ||
+            undefined,
         };
         await authenticate(result.accessToken || result.token, result.refreshToken, profile);
       }
@@ -96,6 +101,9 @@ export default function LoginScreen() {
         const profile = {
           name: (result.user && (result.user.name || result.user.fullName)) || result.name || undefined,
           email: (result.user && (result.user.email || result.user.username)) || result.email || email.trim(),
+          photo: (result.user && (result.user.photo || result.user.picture || result.user.avatar)) ||
+            result.photo || result.picture ||
+            undefined,
         };
         await authenticate(result.accessToken || result.token, result.refreshToken, profile);
       }

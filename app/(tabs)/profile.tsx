@@ -42,11 +42,6 @@ export default function ProfileScreen() {
 
     const accountRows: { icon: React.ComponentProps<typeof FontAwesome>['name']; label: string; sublabel?: string; onPress: () => void; danger?: boolean }[] = [
         {
-            icon: colorScheme === 'dark' ? 'sun-o' : 'moon-o',
-            label: colorScheme === 'dark' ? 'Light Mode' : 'Dark Mode',
-            onPress: toggleTheme,
-        },
-        {
             icon: 'sign-out',
             label: 'Log Out',
             onPress: handleLogout,
@@ -64,8 +59,12 @@ export default function ProfileScreen() {
                 {/* Avatar */}
                 <View style={styles.avatarSection}>
                     <View style={[styles.avatarFrame, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
-                        {user?.photo
-                            ? <Image source={{ uri: user.photo }} style={styles.avatarImg} />
+                        {user?.photo && typeof user.photo === 'string' && user.photo.startsWith('http')
+                            ? <Image
+                                source={{ uri: user.photo }}
+                                style={styles.avatarImg}
+                                resizeMode="cover"
+                            />
                             : <View style={[styles.avatarBg, { backgroundColor: theme.accent }]}>
                                 <Text style={[styles.avatarInitials, { color: theme.accentText }]}>{initials}</Text>
                             </View>

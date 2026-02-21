@@ -80,14 +80,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateProfile = async (profile: UserProfile | null) => {
+  const updateProfile = async (newProfile: UserProfile | null) => {
     try {
-      if (profile) {
-        await storage.setItem('authProfile', JSON.stringify(profile));
+      if (newProfile) {
+        setUser((prev) => {
+          const merged = {
+            ...prev,
+            ...newProfile,
+            // Only overwrite photo if newProfile.photo is actually provided (not just null from partial server response)
+            photo: newProfile.photo || prev?.photo || null
+          };
+          storage.setItem('authProfile', JSON.stringify(merged));
+          return merged;
+        });
       } else {
         await storage.removeItem('authProfile');
+        setUser(null);
       }
-      setUser(profile);
     } catch (error) {
       console.error('Failed to persist profile:', error);
     }
@@ -165,6 +174,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!newAccessToken || !newRefresh) {
         throw new Error('Invalid refresh response');
+      }
+
+      if (result.user) {
+        await updateProfile({
+          name: result.user.name || result.user.fullName,
+          email: result.user.email || result.user.username,
+          photo: result.user.photo || result.user.picture || result.user.avatar || result.photo || result.picture,
+        });
       }
 
       await persistTokens(newAccessToken, newRefresh);
