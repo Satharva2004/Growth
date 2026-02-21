@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     txnSep: { height: 8 },
     txnRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
     txnLogo: {
-        width: 44, height: 44, borderRadius: 14,
+        width: 44, height: 44, borderRadius: 22,
         justifyContent: 'center', alignItems: 'center',
         marginRight: 14, overflow: 'hidden',
     },

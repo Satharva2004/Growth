@@ -59,24 +59,10 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="map"
-                options={{
-                    title: 'Map',
-                    tabBarIcon: ({ color }) => <TabBarIcon name="map-o" color={color} />,
-                }}
-            />
-            <Tabs.Screen
                 name="transfer"
                 options={{
                     title: 'Transfer',
                     tabBarIcon: ({ color }) => <TabBarIcon name="exchange" color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="settings"
-                options={{
-                    title: 'Settings',
-                    tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
                 }}
             />
             <Tabs.Screen

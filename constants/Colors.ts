@@ -82,7 +82,7 @@ const Colors: { light: ThemeColors; dark: ThemeColors } = {
         tint: '#202020',
         buttonBackground: '#202020',
         buttonText: '#ffffff',
-        divider: '#EBEBEB',
+        divider: '#D1D5DB',
         cardShadow: cardShadowLight,
     },
     dark: {
