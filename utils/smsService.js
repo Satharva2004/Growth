@@ -29,23 +29,63 @@ class SmsService {
         if (Platform.OS === 'android' && NativeModules.DirectSmsModule) {
             try {
                 NativeModules.DirectSmsModule.startMonitoring();
+                NativeModules.DirectSmsModule.createNotificationChannel(); // Create Channel
                 console.log('🔌 Native Module initialized');
             } catch (e) {
                 console.error('Failed to init Native Module:', e);
             }
         }
 
-        DeviceEventEmitter.addListener('onDirectSmsReceived', (event) => {
+        DeviceEventEmitter.addListener('onDirectSmsReceived', async (event) => {
             console.log('📩 [DIRECT SMS RECEIVED]', JSON.stringify(event, null, 2));
 
-            // Notify all registered listeners
-            this.smsListeners.forEach(callback => {
-                try {
-                    callback(event);
-                } catch (err) {
-                    console.error('Error in SMS listener callback:', err);
+            // Notify all registered listeners specific to RAW events if needed
+            // But we prefer enriched events.
+
+            try {
+                const { parseWithGroq } = require('./groqService');
+                const transaction = await parseWithGroq(event.body, event.originatingAddress);
+
+                if (transaction) {
+                    console.log('💰 Valid Transaction Detected:', JSON.stringify(transaction));
+
+                    const enrichedEvent = {
+                        ...event,
+                        parsed: transaction
+                    };
+
+                    this.smsListeners.forEach(callback => {
+                        try {
+                            callback(enrichedEvent);
+                        } catch (err) {
+                            console.error('Error in SMS listener callback (enriched):', err);
+                        }
+                    });
+                } else {
+                    // If not a transaction, we might still want to emit the raw event?
+                    // For now, let's emit raw event if NO transaction found, or maybe always?
+                    // To be safe and consistent with previous behavior of "listening to everything":
+                    this.smsListeners.forEach(callback => {
+                        try {
+                            // If we didn't parse it, parsed is null
+                            callback({ ...event, parsed: null });
+                        } catch (err) { }
+                    });
                 }
-            });
+            } catch (e) {
+                console.error('Error in auto-parsing SMS:', e);
+            }
+        });
+
+        // Listen for Notification Actions
+        DeviceEventEmitter.addListener('onNotificationAction', (event) => {
+            console.log('🔔 Notification Action Received:', event.action);
+            if (event.action === 'ACCEPT') {
+                console.log('✅ User Accepted Transaction Tracking');
+                // TODO: Add logic to save transaction to database
+            } else if (event.action === 'REJECT') {
+                console.log('❌ User Rejected Transaction Tracking');
+            }
         });
     }
 

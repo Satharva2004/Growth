@@ -7,50 +7,43 @@ import {
   Text,
   TextInput,
   View,
-  Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-
+import { useRouter, Stack } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Toast from 'react-native-toast-message';
+
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSatisfaction } from '@/contexts/SatisfactionContext';
 
 const API_BASE = 'https://goals-backend-brown.vercel.app/api';
 
-const CATEGORIES = ['Food', 'Bills', 'Travel', 'Health', 'Shopping', 'Savings', 'Other'];
+const CATEGORIES = ['Food', 'Bills', 'Travel', 'Health', 'Shopping', 'Income', 'Savings', 'Other'];
+const PAYMENT_METHODS = ['UPI', 'Card', 'Cash', 'Net Banking', 'Wallet'];
 
 export default function CreateTransactionScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
+  const theme = Colors[colorScheme ?? 'dark'];
   const router = useRouter();
   const { token } = useAuth();
-  const { promptForTransaction } = useSatisfaction();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [isAuto, setIsAuto] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit = async () => {
-    if (!name.trim() || !amount.trim()) {
-      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Name and Value required.' });
+  const handleCreate = async () => {
+    if (!name.trim()) {
+      Toast.show({ type: 'error', text1: 'Missing Name', text2: 'Please enter a transaction name.' });
       return;
     }
-
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount)) {
-      Toast.show({ type: 'error', text1: 'INPUT_ERR', text2: 'Numeric value required.' });
-      return;
-    }
-
-    if (!token) {
-      Toast.show({ type: 'error', text1: 'AUTH_ERR', text2: 'Session expired.' });
+    if (!amount.trim() || isNaN(parseFloat(amount))) {
+      Toast.show({ type: 'error', text1: 'Invalid Amount', text2: 'Please enter a valid amount.' });
       return;
     }
 
@@ -64,38 +57,23 @@ export default function CreateTransactionScreen() {
         },
         body: JSON.stringify({
           name: name.trim(),
-          amount: parsedAmount,
-          category: category || undefined,
+          amount: parseFloat(amount),
+          category: category || 'Other',
           note: note.trim() || undefined,
-          is_auto: isAuto,
           transaction_date: new Date(date).toISOString(),
+          payment_method: paymentMethod || undefined,
+          is_auto: false,
         }),
       });
 
-      const result = await response.json().catch(() => null);
-
       if (!response.ok) {
-        const message =
-          (result && (result.message || result.error)) || 'Failed to create transaction.';
-        throw new Error(message);
+        throw new Error('Failed to create transaction');
       }
 
-      const newTransactionId = result.transaction?.id || result.transaction?._id || result._id || result.data?._id || result.id;
-
-      Toast.show({
-        type: 'success',
-        text1: 'ENTRY_ADDED',
-        text2: 'Ledger updated successfully.',
-      });
-
-      if (newTransactionId) {
-        promptForTransaction(newTransactionId);
-      }
-
-      router.back();
+      Toast.show({ type: 'success', text1: 'Transaction Added', text2: 'Record saved successfully.' });
+      setTimeout(() => router.back(), 500);
     } catch (error) {
-      const description = error instanceof Error ? error.message : 'System error.';
-      Toast.show({ type: 'error', text1: 'ENTRY_SUBMIT_FAIL', text2: description });
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not save the transaction.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -103,102 +81,127 @@ export default function CreateTransactionScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <View style={[styles.tag, { borderColor: theme.tint }]}>
-            <Text style={[styles.tagText, { color: theme.tint }]}>NEW_ENTRY</Text>
-          </View>
-          <Text style={[styles.title, { color: theme.text }]}>LEDGER_INPUT</Text>
-        </View>
+      <Stack.Screen options={{ headerShown: false }} />
 
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <FontAwesome name="arrow-left" size={20} color={theme.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Add Transaction</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+        {/* Name */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.subtleText }]}>DESIGNATION</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Transaction Name</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="E.G. SUPPLIES"
-            placeholderTextColor={theme.subtleText}
-            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
+            placeholder="e.g. Swiggy, Electricity Bill"
+            placeholderTextColor={theme.inputPlaceholder}
+            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
           />
         </View>
 
+        {/* Amount */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.subtleText }]}>VALUE (₹)</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Amount (₹)</Text>
           <TextInput
             value={amount}
-            onChangeText={(text) => {
-              const formatted = text.replace(/[^0-9.]/g, '');
-              if ((formatted.match(/\./g) || []).length > 1) return;
-              setAmount(formatted);
-            }}
+            onChangeText={setAmount}
             keyboardType="decimal-pad"
             placeholder="0.00"
-            placeholderTextColor={theme.subtleText}
-            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
+            placeholderTextColor={theme.inputPlaceholder}
+            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
           />
         </View>
 
+        {/* Category */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.subtleText }]}>CATEGORY_TAG</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+          <Text style={[styles.label, { color: theme.text }]}>Category</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {CATEGORIES.map((cat) => (
               <Pressable
                 key={cat}
                 style={[
-                  styles.categoryChip,
-                  {
-                    backgroundColor: category === cat ? theme.primary : 'transparent',
-                    borderColor: category === cat ? theme.tint : theme.text,
-                  },
+                  styles.chip,
+                  { backgroundColor: category === cat ? theme.primary : theme.surface, ...theme.cardShadow },
                 ]}
-                onPress={() => setCategory(cat)}>
-                <Text
-                  style={[styles.categoryChipText, { color: category === cat ? theme.primaryText : theme.text }]}>
-                  {cat.toUpperCase()}
+                onPress={() => setCategory(cat)}
+              >
+                <Text style={[styles.chipText, { color: category === cat ? theme.primaryText : theme.subtleText }]}>
+                  {cat}
                 </Text>
               </Pressable>
             ))}
           </ScrollView>
         </View>
 
+        {/* Payment Method */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.subtleText }]}>DATE_STAMP</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Payment Method</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {PAYMENT_METHODS.map((method) => (
+              <Pressable
+                key={method}
+                style={[
+                  styles.chip,
+                  { backgroundColor: paymentMethod === method ? theme.primary : theme.surface, ...theme.cardShadow },
+                ]}
+                onPress={() => setPaymentMethod(method)}
+              >
+                <Text style={[styles.chipText, { color: paymentMethod === method ? theme.primaryText : theme.subtleText }]}>
+                  {method}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Date */}
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, { color: theme.text }]}>Date</Text>
           <TextInput
             value={date}
             onChangeText={setDate}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.subtleText}
-            style={[styles.input, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
+            placeholderTextColor={theme.inputPlaceholder}
+            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
           />
         </View>
 
+        {/* Note */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: theme.subtleText }]}>ANNOTATION</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Note (optional)</Text>
           <TextInput
             value={note}
             onChangeText={setNote}
-            placeholder="OPTIONAL..."
-            placeholderTextColor={theme.subtleText}
             multiline
             numberOfLines={3}
-            style={[styles.input, styles.textArea, { borderColor: theme.text, color: theme.text, backgroundColor: theme.background }]}
+            placeholder="Add a short note..."
+            placeholderTextColor={theme.inputPlaceholder}
+            style={[styles.input, styles.textArea, { backgroundColor: theme.inputBackground, color: theme.text }]}
           />
         </View>
 
-        <View style={[styles.switchRow, { borderColor: theme.text }]}>
-          <Text style={[styles.label, { color: theme.text }]}>AUTO_DEDUCT_CYCLE</Text>
-          <Switch value={isAuto} onValueChange={setIsAuto} thumbColor={theme.primary} trackColor={{ false: theme.subtleText, true: theme.text }} />
-        </View>
-
+        {/* Submit */}
         <Pressable
           style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }
+            styles.submitButton,
+            { backgroundColor: theme.primary, opacity: isSubmitting || pressed ? 0.7 : 1 },
           ]}
-          onPress={onSubmit}
-          disabled={isSubmitting}>
-          <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'PROCESSING...' : 'EXECUTE_ENTRY'}</Text>
+          onPress={handleCreate}
+          disabled={isSubmitting}
+        >
+          <Text style={[styles.submitText, { color: theme.primaryText }]}>
+            {isSubmitting ? 'Saving...' : 'Save Transaction'}
+          </Text>
         </Pressable>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -208,85 +211,71 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
   content: {
     padding: 24,
     gap: 24,
   },
-  header: {
-    marginBottom: 12,
-    gap: 8,
-  },
-  tag: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 2,
-  },
-  tagText: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-  },
-  title: {
-    fontSize: 24,
-    fontFamily: 'Poppins_700Bold',
-    letterSpacing: 1,
-  },
   fieldGroup: {
-    gap: 8,
+    gap: 10,
   },
   label: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    letterSpacing: 1,
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 2,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontFamily: 'Courier',
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   textArea: {
-    minHeight: 90,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
-  categoryRow: {
-    gap: 8,
+  chipRow: {
+    gap: 10,
     paddingVertical: 4,
+    paddingHorizontal: 2,
   },
-  categoryChip: {
-    borderWidth: 1,
-    borderRadius: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  categoryChipText: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 2,
+  chip: {
+    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
-  button: {
-    borderRadius: 2,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  buttonText: {
+  chipText: {
     fontSize: 14,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontFamily: 'SpaceGrotesk_500Medium',
+  },
+  submitButton: {
+    borderRadius: 30,
+    paddingVertical: 18,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop: 8,
+  },
+  submitText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });

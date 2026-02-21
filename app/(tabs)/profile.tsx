@@ -1,251 +1,170 @@
 
 import { useMemo } from 'react';
-import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, Pressable, ScrollView, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
-import Colors from '@/constants/Colors';
+import Colors, { Fonts as F } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import Toast from 'react-native-toast-message';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProfileScreen() {
+    const { toggleTheme } = useTheme();
     const colorScheme = useColorScheme();
-    const theme = Colors[colorScheme ?? 'dark']; // Force dark/wireframe
+    const theme = Colors[colorScheme ?? 'light'];
     const router = useRouter();
     const { logout, user } = useAuth();
 
     const displayName = useMemo(() => {
         if (user?.name) return user.name;
         if (user?.email) return user.email.split('@')[0];
-        return 'USER_01';
+        return 'User';
     }, [user]);
 
     const initials = useMemo(() => {
-        if (!displayName) return 'ID';
         const parts = displayName.split(' ');
         if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
         return displayName.slice(0, 2).toUpperCase();
     }, [displayName]);
 
-    const handleLogout = async () => {
-        Toast.show({ type: 'info', text1: 'SESSION TERMINATED', text2: 'Secure disconnect complete.' });
+    async function handleLogout() {
+        Toast.show({ type: 'success', text1: 'Logged Out', text2: 'See you soon!' });
         await logout();
         router.replace('/login');
-    };
+    }
+
+    const personalRows: { icon: React.ComponentProps<typeof FontAwesome>['name']; label: string; value: string }[] = [
+        { icon: 'user-o', label: 'Name', value: displayName },
+        { icon: 'envelope-o', label: 'E-mail', value: user?.email || '—' },
+    ];
+
+    const accountRows: { icon: React.ComponentProps<typeof FontAwesome>['name']; label: string; sublabel?: string; onPress: () => void; danger?: boolean }[] = [
+        {
+            icon: colorScheme === 'dark' ? 'sun-o' : 'moon-o',
+            label: colorScheme === 'dark' ? 'Light Mode' : 'Dark Mode',
+            onPress: toggleTheme,
+        },
+        {
+            icon: 'sign-out',
+            label: 'Log Out',
+            onPress: handleLogout,
+            danger: true,
+        },
+    ];
 
     return (
-        <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-            <View style={styles.header}>
-                <View style={[styles.tag, { borderColor: theme.text }]}>
-                    <Text style={[styles.tagText, { color: theme.text }]}>USER_CONFIG</Text>
-                </View>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>PROFILE_DATA</Text>
-            </View>
+        <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
 
-            <View style={[styles.profileCard, { borderColor: theme.text, backgroundColor: theme.background }]}>
-                <View style={styles.cardHeader}>
-                    <View style={[styles.avatarContainer, { borderColor: theme.text }]}>
-                        <Text style={[styles.avatarText, { color: theme.text }]}>{initials}</Text>
+                {/* Title */}
+                <Text style={[styles.pageTitle, { color: theme.text }]}>Profile</Text>
+
+                {/* Avatar */}
+                <View style={styles.avatarSection}>
+                    <View style={[styles.avatarFrame, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
+                        {user?.photo
+                            ? <Image source={{ uri: user.photo }} style={styles.avatarImg} />
+                            : <View style={[styles.avatarBg, { backgroundColor: theme.accent }]}>
+                                <Text style={[styles.avatarInitials, { color: theme.accentText }]}>{initials}</Text>
+                            </View>
+                        }
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.userName, { color: theme.text }]}>{displayName.toUpperCase()}</Text>
-                        <Text style={[styles.userEmail, { color: theme.subtleText }]}>{user?.email?.toUpperCase()}</Text>
-                        <Text style={[styles.idLabel, { color: theme.subtleText }]}>ID: {Math.random().toString(36).substr(2, 8).toUpperCase()}</Text>
+                    {/* Pencil edit */}
+                    <View style={[styles.editBadge, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
+                        <FontAwesome name="pencil" size={11} color={theme.subtleText} />
                     </View>
-                </View>
-
-                {/* Decorative Tech Lines */}
-                <View style={[styles.techLine, { backgroundColor: theme.text }]} />
-            </View>
-
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>SYSTEM_PREFERENCES</Text>
-
-                <View style={[styles.row, { borderBottomColor: theme.text }]}>
-                    <View style={styles.rowIcon}>
-                        <FontAwesome name="terminal" size={16} color={theme.text} />
-                    </View>
-                    <Text style={[styles.rowLabel, { color: theme.text }]}>INTERFACE_MODE</Text>
-                    <Text style={[styles.rowValue, { color: theme.text }]}>DARK_WIRE</Text>
                 </View>
 
-                <View style={[styles.row, { borderBottomColor: theme.text }]}>
-                    <View style={styles.rowIcon}>
-                        <FontAwesome name="bell-o" size={16} color={theme.text} />
+                {/* Personal info */}
+                <View style={[styles.card, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
+                    <View style={styles.cardHead}>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>Personal info</Text>
+                        <Pressable><Text style={[styles.editBtn, { color: theme.text }]}>Edit</Text></Pressable>
                     </View>
-                    <Text style={[styles.rowLabel, { color: theme.text }]}>NOTIFICATIONS</Text>
-                    <Text style={[styles.rowValue, { color: theme.text }]}>ACTIVE</Text>
+                    {personalRows.map((row, i) => (
+                        <View key={row.label}>
+                            {i > 0 && <View style={[styles.sep, { backgroundColor: theme.divider }]} />}
+                            <View style={styles.infoRow}>
+                                <FontAwesome name={row.icon} size={14} color={theme.subtleText} style={styles.infoIcon} />
+                                <View>
+                                    <Text style={[styles.infoLabel, { color: theme.subtleText }]}>{row.label}</Text>
+                                    <Text style={[styles.infoValue, { color: theme.text }]}>{row.value}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    ))}
                 </View>
-            </View>
 
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.subtleText }]}>SESSION_CONTROL</Text>
-                <Pressable
-                    onPress={handleLogout}
-                    style={({ pressed }) => [
-                        styles.menuItem,
-                        { borderColor: theme.text, opacity: pressed ? 0.7 : 1 }
-                    ]}
-                >
-                    <View style={[styles.iconContainer, { borderColor: theme.text }]}>
-                        <FontAwesome name="power-off" size={16} color={theme.text} />
-                    </View>
-                    <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: theme.text }]}>TERMINATE_SESSION</Text>
-                        <Text style={[styles.menuSubtitle, { color: theme.subtleText }]}>Disconnect from local node</Text>
-                    </View>
-                    <FontAwesome name="chevron-right" size={12} color={theme.text} />
-                </Pressable>
-            </View>
+                {/* Account info */}
+                <View style={[styles.card, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
+                    <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 10 }]}>Account info</Text>
+                    {accountRows.map((item, i) => (
+                        <View key={item.label}>
+                            {i > 0 && <View style={[styles.sep, { backgroundColor: theme.divider }]} />}
+                            <Pressable
+                                style={({ pressed }) => [styles.actionRow, { opacity: pressed ? 0.7 : 1 }]}
+                                onPress={item.onPress}
+                            >
+                                <FontAwesome
+                                    name={item.icon}
+                                    size={14}
+                                    color={item.danger ? theme.error : theme.subtleText}
+                                    style={styles.infoIcon}
+                                />
+                                <Text style={[styles.actionLabel, { color: item.danger ? theme.error : theme.text, flex: 1 }]}>
+                                    {item.label}
+                                </Text>
+                                <FontAwesome name="chevron-right" size={11} color={theme.subtleText} />
+                            </Pressable>
+                        </View>
+                    ))}
+                </View>
 
-            <View style={styles.footer}>
-                <Text style={[styles.versionText, { color: theme.subtleText }]}>CLARITY_SYS v1.0.0 // STABLE</Text>
-            </View>
-        </ScrollView>
+                <Text style={[styles.version, { color: theme.subtleText }]}>Clarity v1.0.0</Text>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 24,
-    },
-    header: {
-        paddingTop: 40,
-        marginBottom: 32,
-        gap: 8,
-    },
-    tag: {
-        alignSelf: 'flex-start',
-        borderWidth: 1,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 2,
-    },
-    tagText: {
-        fontSize: 10,
-        fontFamily: 'Courier',
-        fontWeight: 'bold',
-    },
-    headerTitle: {
-        fontSize: 32,
-        fontFamily: 'Poppins_700Bold',
-        letterSpacing: 1,
-    },
-    profileCard: {
-        borderWidth: 1,
-        padding: 20,
-        marginBottom: 40,
-        borderRadius: 2,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    safe: { flex: 1 },
+    content: {
+        paddingHorizontal: 22,
+        paddingTop: Platform.OS === 'android' ? 16 : 8,
+        paddingBottom: 80,
         gap: 20,
     },
-    avatarContainer: {
-        width: 60,
-        height: 60,
-        borderWidth: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 2, // Square-ish
+    pageTitle: {
+        fontSize: 22, fontFamily: F.bold, textAlign: 'center', marginBottom: 4,
     },
-    avatarText: {
-        fontSize: 20,
-        fontFamily: 'Courier',
-        fontWeight: 'bold',
+    // Avatar
+    avatarSection: { alignItems: 'center', position: 'relative', marginBottom: 4 },
+    avatarFrame: {
+        width: 110, height: 110, borderRadius: 55, overflow: 'hidden',
     },
-    userName: {
-        fontSize: 18,
-        fontFamily: 'Poppins_600SemiBold', // Keep name readable
-        letterSpacing: 0.5,
+    avatarImg: { width: '100%', height: '100%' },
+    avatarBg: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+    avatarInitials: { fontSize: 36, fontFamily: F.bold },
+    editBadge: {
+        position: 'absolute', bottom: 2, right: '32%',
+        width: 28, height: 28, borderRadius: 14,
+        justifyContent: 'center', alignItems: 'center',
     },
-    userEmail: {
-        fontSize: 12,
-        fontFamily: 'Courier',
-        marginBottom: 4,
-    },
-    idLabel: {
-        fontSize: 10,
-        fontFamily: 'Courier',
-        opacity: 0.7,
-    },
-    techLine: {
-        height: 1,
-        width: '100%',
-        marginTop: 20,
-        opacity: 0.5,
-    },
-    section: {
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontSize: 10,
-        fontFamily: 'Courier',
-        fontWeight: 'bold',
-        marginBottom: 12,
-        marginLeft: 4,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderWidth: 1,
-        borderRadius: 2,
-        gap: 16,
-    },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderRadius: 2,
-    },
-    menuTextContainer: {
-        flex: 1,
-    },
-    menuTitle: {
-        fontSize: 14,
-        fontFamily: 'Courier',
-        fontWeight: 'bold',
-    },
-    menuSubtitle: {
-        fontSize: 10,
-        fontFamily: 'Courier',
-        marginTop: 2,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        paddingHorizontal: 4,
-        gap: 12,
-    },
-    rowIcon: {
-        width: 24,
-        alignItems: 'center',
-    },
-    rowLabel: {
-        flex: 1,
-        fontSize: 14,
-        fontFamily: 'Courier',
-        fontWeight: 'bold',
-    },
-    rowValue: {
-        fontSize: 12,
-        fontFamily: 'Courier',
-    },
-    footer: {
-        alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 60,
-    },
-    versionText: {
-        fontSize: 10,
-        fontFamily: 'Courier',
-        opacity: 0.5,
-    },
+    // Card
+    card: { borderRadius: 20, paddingHorizontal: 20, paddingVertical: 18 },
+    cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    cardTitle: { fontSize: 17, fontFamily: F.bold },
+    editBtn: { fontSize: 14, fontFamily: F.medium },
+    // Info rows
+    sep: { height: 1, marginVertical: 14 },
+    infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 2 },
+    infoIcon: { marginTop: 2, width: 16, textAlign: 'center' },
+    infoLabel: { fontSize: 11, fontFamily: F.regular, textTransform: 'uppercase', letterSpacing: 0.3 },
+    infoValue: { fontSize: 14, fontFamily: F.medium, marginTop: 2 },
+    // Action rows
+    actionRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6 },
+    actionLabel: { fontSize: 15, fontFamily: F.medium },
+    version: { textAlign: 'center', fontSize: 12, fontFamily: F.regular },
 });

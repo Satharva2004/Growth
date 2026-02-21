@@ -7,22 +7,29 @@ import { useColorScheme } from '@/components/useColorScheme';
 
 export default function ModalScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark']; // Force wireframe
+  const theme = Colors[colorScheme ?? 'light'];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.card, { borderColor: theme.text }]}>
-        <Text style={[styles.title, { color: theme.text }]}>SYSTEM_INFO</Text>
-        <View style={[styles.separator, { backgroundColor: theme.text }]} />
+      <View style={[styles.card, { backgroundColor: theme.surface, ...theme.cardShadow }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Clarity</Text>
+        <View style={[styles.separator, { backgroundColor: theme.divider }]} />
 
-        <Text style={[styles.infoText, { color: theme.text }]}>
-          CLARITY_V1.0
-        </Text>
-        <Text style={[styles.infoSubtext, { color: theme.subtleText }]}>
-          SECURE_CONNECTION_ESTABLISHED
-        </Text>
-        <Text style={[styles.infoSubtext, { color: theme.subtleText }]}>
-          ALL_SYSTEMS_NOMINAL
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.subtleText }]}>Version</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>1.0.0 (Beta)</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.subtleText }]}>Status</Text>
+          <Text style={[styles.infoValue, { color: theme.success }]}>Online</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: theme.subtleText }]}>Session</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>Secure</Text>
+        </View>
+
+        <Text style={[styles.footer, { color: theme.subtleText }]}>
+          Tracking your financial freedom.
         </Text>
       </View>
 
@@ -36,30 +43,42 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
   },
   card: {
-    borderWidth: 1,
-    padding: 40,
+    width: '100%',
+    borderRadius: 24,
+    padding: 30,
     alignItems: 'center',
     gap: 16,
   },
   title: {
-    fontSize: 20,
-    fontFamily: 'Poppins_700Bold',
-    letterSpacing: 2,
+    fontSize: 24,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   separator: {
     height: 1,
     width: '100%',
-    opacity: 0.5,
+    marginVertical: 10,
   },
-  infoText: {
-    fontFamily: 'Courier',
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontFamily: 'SpaceGrotesk_500Medium',
     fontSize: 14,
-    fontWeight: 'bold',
   },
-  infoSubtext: {
-    fontFamily: 'Courier',
-    fontSize: 10,
+  infoValue: {
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontSize: 14,
+  },
+  footer: {
+    marginTop: 20,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    fontSize: 12,
+    textAlign: 'center',
   }
 });

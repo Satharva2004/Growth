@@ -2,11 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = 'https://goals-backend-brown.vercel.app/api';
+import { API_BASE } from '@/constants/Config';
 
 interface UserProfile {
   name?: string | null;
   email?: string | null;
+  photo?: string | null;
 }
 
 interface AuthContextType {

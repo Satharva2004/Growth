@@ -5,7 +5,7 @@
 
 import { Text as DefaultText, View as DefaultView } from 'react-native';
 
-import Colors from '@/constants/Colors';
+import Colors, { ThemeColors } from '@/constants/Colors';
 import { useColorScheme } from './useColorScheme';
 
 type ThemeProps = {
@@ -16,17 +16,22 @@ type ThemeProps = {
 export type TextProps = ThemeProps & DefaultText['props'];
 export type ViewProps = ThemeProps & DefaultView['props'];
 
+// Only string-valued keys from the theme (excludes cardShadow which is an object)
+type StringColorKey = {
+  [K in keyof ThemeColors]: ThemeColors[K] extends string ? K : never;
+}[keyof ThemeColors];
+
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
-) {
+  colorName: StringColorKey
+): string {
   const theme = useColorScheme() ?? 'light';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return Colors[theme][colorName];
+    return Colors[theme][colorName] as string;
   }
 }
 

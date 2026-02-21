@@ -12,12 +12,14 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE } from '@/constants/Config';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark']; // Force dark preference generally
+  const theme = Colors[colorScheme ?? 'dark'];
   const router = useRouter();
   const { login: authenticate } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +27,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '428582393615-r0h05a56835aj1q34s4bhgn64jk67vnv.apps.googleusercontent.com', // Updated Web Client ID
+      webClientId: '428582393615-r0h05a56835aj1q34s4bhgn64jk67vnv.apps.googleusercontent.com',
       offlineAccess: true,
       scopes: ['profile', 'email'],
     });
@@ -33,152 +35,76 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     try {
-      console.log('Starting Google Sign-In flow...');
       setIsGoogleSubmitting(true);
-
-      console.log('Checking Play Services...');
       await GoogleSignin.hasPlayServices();
-
-      console.log('Calling GoogleSignin.signIn()...');
       const userInfo = await GoogleSignin.signIn();
-      console.log('GoogleSignin.signIn() successful. UserInfo:', JSON.stringify(userInfo, null, 2));
+      const { idToken } = (userInfo as any).data || userInfo;
 
-      // Get the idToken
-      const { idToken } = (userInfo as any).data || userInfo; // Handle structure differences in versions
-      console.log('Extracted idToken:', idToken ? 'Token exists' : 'Token is missing');
+      if (!idToken) throw new Error('No ID token found');
 
-      if (!idToken) {
-        throw new Error('No ID token found');
-      }
-
-      // Send to backend
-      console.log('Sending idToken to backend...');
-      const response = await fetch('https://goals-backend-brown.vercel.app/api/auth/google', {
+      const response = await fetch(`${API_BASE}/auth/google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token: idToken,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: idToken }),
       });
 
-      console.log('Backend response status:', response.status);
       const result = await response.json().catch(() => null);
-      console.log('Backend response body:', JSON.stringify(result, null, 2));
 
       if (!response.ok) {
         throw new Error((result && result.message) || 'Google sign-in failed on server.');
       }
 
-      // Save token from response
       if (result && (result.accessToken || result.token) && result.refreshToken) {
-        console.log('Saving authentication tokens...');
         const profile = {
-          name:
-            (result.user && (result.user.name || result.user.fullName)) ||
-            result.name ||
-            undefined,
-          email:
-            (result.user && (result.user.email || result.user.username)) ||
-            result.email ||
-            undefined,
+          name: (result.user && (result.user.name || result.user.fullName)) || result.name || undefined,
+          email: (result.user && (result.user.email || result.user.username)) || result.email || undefined,
         };
-        const accessToken = result.accessToken || result.token;
-        await authenticate(accessToken, result.refreshToken, profile);
-        console.log('Authentication tokens saved.');
+        await authenticate(result.accessToken || result.token, result.refreshToken, profile);
       }
 
-      Toast.show({
-        type: 'success',
-        text1: 'Welcome back',
-        text2: 'Signed in with Google successfully.',
-      });
-      setTimeout(() => router.replace('/(tabs)'), 800);
+      Toast.show({ type: 'success', text1: 'Welcome Back', text2: 'Signed in with Google.' });
+      setTimeout(() => router.replace('/(tabs)'), 500);
 
     } catch (error: any) {
-      console.error('ERROR in Google Sign-In flow:', error);
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log('User cancelled the login flow');
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        console.log('Operation (sign in) is in progress');
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        console.log('Play services not available or outdated');
-        Toast.show({ type: 'error', text1: 'Google Error', text2: 'Play Services not available' });
-      } else {
-        console.error('Google Sign-In Error Details:', JSON.stringify(error, null, 2));
-        Toast.show({
-          type: 'error',
-          text1: 'Login Failed',
-          text2: error.message || 'Could not sign in with Google.',
-        });
+      if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
+        Toast.show({ type: 'error', text1: 'Sign-In Failed', text2: error.message || 'Could not sign in with Google.' });
       }
     } finally {
       setIsGoogleSubmitting(false);
-      console.log('Google Sign-In flow finished.');
     }
   };
 
   const onSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Toast.show({
-        type: 'info',
-        text1: 'Required',
-        text2: 'Enter your credentials to continue.',
-      });
+      Toast.show({ type: 'info', text1: 'Missing Fields', text2: 'Email and password are required.' });
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('https://goals-backend-brown.vercel.app/api/auth/login', {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const result = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        const message =
-          (result && (result.message || result.error)) || 'Unable to log in. Please try again.';
-        throw new Error(message);
-      }
+      if (!response.ok) throw new Error((result && result.message) || 'Login failed.');
 
-      // Save token from response
       if (result && (result.accessToken || result.token) && result.refreshToken) {
         const profile = {
-          name:
-            (result.user && (result.user.name || result.user.fullName)) ||
-            result.name ||
-            undefined,
-          email:
-            (result.user && (result.user.email || result.user.username)) ||
-            result.email ||
-            email.trim(),
+          name: (result.user && (result.user.name || result.user.fullName)) || result.name || undefined,
+          email: (result.user && (result.user.email || result.user.username)) || result.email || email.trim(),
         };
-        const accessToken = result.accessToken || result.token;
-        await authenticate(accessToken, result.refreshToken, profile);
+        await authenticate(result.accessToken || result.token, result.refreshToken, profile);
       }
 
-      Toast.show({
-        type: 'success',
-        text1: 'Access Granted',
-        text2: 'System initialization complete.',
-      });
-      setTimeout(() => router.replace('/(tabs)'), 800);
+      Toast.show({ type: 'success', text1: 'Welcome Back', text2: 'Session started.' });
+      setTimeout(() => router.replace('/(tabs)'), 500);
     } catch (error) {
-      const description = error instanceof Error ? error.message : 'Unexpected error. Please try again.';
-      Toast.show({
-        type: 'error',
-        text1: 'Access Denied',
-        text2: description,
-      });
+      const description = error instanceof Error ? error.message : 'Unexpected error.';
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: description });
     } finally {
       setIsSubmitting(false);
     }
@@ -187,106 +113,95 @@ export default function LoginScreen() {
   return (
     <View style={[styles.background, { backgroundColor: theme.background }]}>
       <SafeAreaView style={styles.container}>
-        <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
-          keyboardVerticalOffset={0}
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(1000).springify()}
-              style={styles.heroArea}
-            >
-              <View style={[styles.badge, { borderColor: theme.text }]}>
-                <Text style={[styles.badgeText, { color: theme.text }]}>SECURE_LOGIN</Text>
-              </View>
-              <Text style={[styles.title, { color: theme.text }]}>
-                IDENTIFICATION
-              </Text>
+            <Animated.View entering={FadeInDown.delay(200).duration(1000).springify()} style={styles.header}>
+              <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
               <Text style={[styles.subtitle, { color: theme.subtleText }]}>
-                Enter system credentials to access the Clarity protocol.
+                Sign in to continue tracking your finances.
               </Text>
             </Animated.View>
 
-            <Animated.View
-              entering={FadeInUp.delay(400).duration(1000).springify()}
-              style={{ gap: 20 }}
-            >
-              <Animated.View entering={FadeInDown.delay(600).duration(800)} style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: theme.subtleText }]}>EMAIL_ADDRESS</Text>
+            <Animated.View entering={FadeInUp.delay(400).duration(1000).springify()} style={styles.form}>
+              <Animated.View entering={FadeInDown.delay(600).duration(800)} style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Email Address</Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="user@clarity.io"
+                  placeholder="name@example.com"
                   placeholderTextColor={theme.inputPlaceholder}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  selectionColor={theme.tint}
-                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                 />
               </Animated.View>
-              <Animated.View entering={FadeInDown.delay(700).duration(800)} style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: theme.subtleText }]}>ACCESS_KEY</Text>
+
+              <Animated.View entering={FadeInDown.delay(700).duration(800)} style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Password</Text>
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="••••••••"
+                  placeholder="Your password"
                   placeholderTextColor={theme.inputPlaceholder}
                   autoCapitalize="none"
                   secureTextEntry
-                  selectionColor={theme.tint}
-                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                 />
               </Animated.View>
+
               <Animated.View entering={FadeInDown.delay(800).duration(800)}>
                 <Pressable
                   style={({ pressed }) => [
                     styles.button,
-                    { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }
+                    { backgroundColor: theme.buttonBackground, opacity: (isSubmitting || pressed) ? 0.8 : 1 }
                   ]}
                   onPress={onSubmit}
                   disabled={isSubmitting}
                 >
-                  <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'AUTHENTICATING...' : 'ESTABLISH CONNECTION'}</Text>
+                  <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+                    {isSubmitting ? 'Signing In...' : 'Sign In'}
+                  </Text>
                 </Pressable>
               </Animated.View>
 
-              <Animated.View entering={FadeInDown.delay(900).duration(800)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ height: 1, flex: 1, backgroundColor: theme.divider }} />
-                <Text style={{ color: theme.subtleText, fontSize: 10, fontFamily: 'Courier' }}>ALT_METHOD</Text>
-                <View style={{ height: 1, flex: 1, backgroundColor: theme.divider }} />
+              <Animated.View entering={FadeInDown.delay(900).duration(800)} style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+                <Text style={[styles.dividerText, { color: theme.subtleText }]}>or</Text>
+                <View style={[styles.divider, { backgroundColor: theme.divider }]} />
               </Animated.View>
 
               <Animated.View entering={FadeInDown.delay(1000).duration(800)}>
                 <Pressable
-                  style={[
-                    styles.socialButton,
-                    {
-                      borderColor: theme.inputBorder,
-                    }
-                  ]}
+                  style={[styles.socialButton, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775' }]}
                   onPress={handleGoogleLogin}
                   disabled={isGoogleSubmitting}
                 >
                   {isGoogleSubmitting ? (
-                    <Text style={[styles.socialButtonText, { color: theme.text }]}>CONNECTING...</Text>
+                    <Text style={[styles.socialButtonText, { color: '#1f1f1f' }]}>Connecting...</Text>
                   ) : (
                     <>
-                      <FontAwesome name="google" size={16} color={theme.text} />
-                      <Text style={[styles.socialButtonText, { color: theme.text }]}>GOOGLE_ID</Text>
+                      <FontAwesome name="google" size={20} color="#DB4437" />
+                      <Text style={[styles.socialButtonText, { color: '#1f1f1f' }]}>Continue with Google</Text>
                     </>
                   )}
                 </Pressable>
               </Animated.View>
 
               <Animated.View entering={FadeInDown.delay(1100).duration(800)} style={styles.footer}>
-                <Text style={[styles.footerText, { color: theme.subtleText }]}>NO_CREDENTIALS?</Text>
-                <Link href="/signup" style={[styles.link, { color: theme.text }]}>INITIALIZE_NEW_USER</Link>
+                <Text style={[styles.footerText, { color: theme.subtleText }]}>Don't have an account?</Text>
+                <Link href="/signup" replace asChild>
+                  <Pressable>
+                    <Text style={[styles.link, { color: theme.tint }]}>Sign Up</Text>
+                  </Pressable>
+                </Link>
               </Animated.View>
             </Animated.View>
           </ScrollView>
@@ -308,97 +223,95 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-    justifyContent: 'space-between',
-    gap: 32,
+    padding: 30,
+    justifyContent: 'center',
   },
-  heroArea: {
-    gap: 12,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+  header: {
+    marginBottom: 40,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    lineHeight: 40,
-    fontFamily: 'Poppins_700Bold', // Keep bold for header but consider changing if user wants strictly courier
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    fontSize: 28,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
   },
-  fieldGroup: {
+  form: {
+    gap: 24,
+  },
+  inputGroup: {
     gap: 8,
   },
   label: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    letterSpacing: 1,
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 4, // Technical corners
+    height: 56,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
     fontSize: 16,
-    fontFamily: 'Courier', // Monospace input for technical feel
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   button: {
-    borderRadius: 4,
-    paddingVertical: 16,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginVertical: 10,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
     fontSize: 14,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
+  socialButton: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+    marginTop: 20,
   },
   footerText: {
-    fontSize: 12,
-    fontFamily: 'Courier',
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   link: {
-    fontSize: 12,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    gap: 12,
-  },
-  socialButtonText: {
     fontSize: 14,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });

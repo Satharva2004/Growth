@@ -1,18 +1,20 @@
+
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useEffect, useRef } from 'react';
 import { useFonts } from 'expo-font';
 import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins';
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import Toast from 'react-native-toast-message';
 import SmsService from '../utils/smsService';
 import 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
 
 import * as Notifications from 'expo-notifications';
 import { sendSatisfactionNotification, handleNotificationResponse, setupNotifications } from '@/utils/notificationService';
@@ -25,8 +27,6 @@ export {
   ErrorBoundary,
 } from 'expo-router';
 
-// ... (existing code for settings and splash screen)
-
 export const unstable_settings = {
   // Ensure that reloading on `/ modal` keeps a back button present.
   initialRouteName: 'login',
@@ -35,13 +35,15 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+import { CustomThemeProvider } from '@/contexts/ThemeContext';
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
     ...FontAwesome.font,
   });
 
@@ -61,12 +63,14 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <SatisfactionProvider>
-        <RootLayoutNav />
-        <Toast topOffset={60} />
-      </SatisfactionProvider>
-    </AuthProvider>
+    <CustomThemeProvider>
+      <AuthProvider>
+        <SatisfactionProvider>
+          <RootLayoutNav />
+          <Toast topOffset={60} />
+        </SatisfactionProvider>
+      </AuthProvider>
+    </CustomThemeProvider>
   );
 }
 
@@ -124,31 +128,33 @@ function RootLayoutNav() {
         const unsubscribe = SmsService.addSmsListener(async (msg: any) => {
           console.log('🔔 App Root detected SMS from:', msg.originatingAddress);
 
-          // Import parser dynamically or use the imported one if safe
-          const { parseTransactionSms } = require('../utils/transactionSmsParser');
-          const TransactionService = require('../utils/transactionService').default;
+          // The event is now enriched with Groq data in 'parsed' field
+          const parsed = msg.parsed;
 
-          const parsed = parseTransactionSms(msg.body);
-
-          if (parsed && parsed.type === 'debit') {
-            console.log('💸 Debit Transaction Detected:', parsed.amount);
+          if (parsed && (parsed.type === 'debit' || parsed.type === 'credit')) {
+            console.log('💸 Transaction Detected (Groq):', parsed.amount);
 
             if (token) {
               try {
+                // Dynamic import to avoid cycles or heavy load
+                const TransactionService = require('../utils/transactionService').default;
+
                 Toast.show({
                   type: 'info',
                   text1: 'New Transaction Detected',
-                  text2: `Processing ${parsed.merchant || 'purchase'}...`
+                  text2: `Processing ${parsed.name || 'purchase'}...`
                 });
 
                 // Create transaction on backend
                 const newTxn = await TransactionService.createTransaction(token, {
-                  name: parsed.merchant || 'Unknown Purchase',
+                  name: parsed.name || 'Unknown Purchase',
                   amount: parsed.amount,
-                  category: 'Other',
-                  note: `Auto - detected from SMS: ${parsed.rawBody} `,
+                  category: parsed.category || 'Other',
+                  note: parsed.note || `Auto - detected from SMS`,
                   is_auto: true,
-                  transaction_date: new Date().toISOString()
+                  transaction_date: parsed.transaction_date || new Date().toISOString(),
+                  merchant_domain: parsed.merchant_domain,
+                  image_address: parsed.image_address // Pass this if backend supports it, or it will be ignored
                 });
 
                 console.log('✅ Transaction created:', newTxn.id || newTxn._id);
@@ -158,7 +164,7 @@ function RootLayoutNav() {
                 if (txnId) {
                   await sendSatisfactionNotification(
                     txnId,
-                    parsed.merchant || 'Unknown Purchase',
+                    parsed.name || 'Unknown Purchase',
                     parsed.amount
                   );
 
@@ -194,13 +200,14 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="landing" options={{ headerShown: false }} />
-        <Stack.Screen name="goals/create" options={{ title: 'Create Goal' }} />
-        <Stack.Screen name="goals/[id]" options={{ title: 'Goal Details' }} />
+        <Stack.Screen name="transactions/create" options={{ headerShown: false }} />
+        <Stack.Screen name="transactions/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>

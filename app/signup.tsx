@@ -12,10 +12,11 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE } from '@/constants/Config';
 
 export default function SignupScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'dark']; // Force dark preference
+  const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
   const { login: authenticate } = useAuth();
   const [name, setName] = useState('');
@@ -26,7 +27,7 @@ export default function SignupScreen() {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '428582393615-r0h05a56835aj1q34s4bhgn64jk67vnv.apps.googleusercontent.com', // Updated Web Client ID
+      webClientId: '428582393615-r0h05a56835aj1q34s4bhgn64jk67vnv.apps.googleusercontent.com',
       offlineAccess: true,
       scopes: ['profile', 'email'],
     });
@@ -41,7 +42,7 @@ export default function SignupScreen() {
 
       if (!idToken) throw new Error('No ID token found');
 
-      const response = await fetch('https://goals-backend-brown.vercel.app/api/auth/google', {
+      const response = await fetch(`${API_BASE}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: idToken }),
@@ -66,7 +67,6 @@ export default function SignupScreen() {
 
     } catch (error: any) {
       if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-        console.error('Google Sign-In Error', error);
         Toast.show({ type: 'error', text1: 'Verification Failed', text2: error.message || 'Could not sign up with Google.' });
       }
     } finally {
@@ -74,14 +74,9 @@ export default function SignupScreen() {
     }
   };
 
-
   const onSubmit = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
-      Toast.show({
-        type: 'info',
-        text1: 'Incomplete Data',
-        text2: 'All fields are mandatory for registration.',
-      });
+      Toast.show({ type: 'info', text1: 'Incomplete Data', text2: 'All fields are mandatory.' });
       return;
     }
 
@@ -89,53 +84,28 @@ export default function SignupScreen() {
       setIsSubmitting(true);
       const response = await fetch('https://goals-backend-brown.vercel.app/api/auth/signup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
       });
 
       const result = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        const message =
-          (result && (result.message || result.error)) || 'Unable to sign up. Please try again.';
-        throw new Error(message);
-      }
+      if (!response.ok) throw new Error((result && result.message) || 'Unable to sign up.');
 
-      // Save token from response
       if (result && (result.accessToken || result.token) && result.refreshToken) {
         const profile = {
-          name:
-            (result.user && (result.user.name || result.user.fullName)) ||
-            result.name ||
-            name.trim(),
-          email:
-            (result.user && (result.user.email || result.user.username)) ||
-            result.email ||
-            email.trim(),
+          name: (result.user && (result.user.name || result.user.fullName)) || result.name || name.trim(),
+          email: (result.user && (result.user.email || result.user.username)) || result.email || email.trim(),
         };
         const accessToken = result.accessToken || result.token;
         await authenticate(accessToken, result.refreshToken, profile);
       }
 
-      Toast.show({
-        type: 'success',
-        text1: 'Registration Complete',
-        text2: "System access granted.",
-      });
-      setTimeout(() => router.replace('/(tabs)'), 900);
+      Toast.show({ type: 'success', text1: 'Registration Complete', text2: "System access granted." });
+      setTimeout(() => router.replace('/(tabs)'), 500);
     } catch (error) {
-      const description = error instanceof Error ? error.message : 'Unexpected error. Please try again.';
-      Toast.show({
-        type: 'error',
-        text1: 'Registration Failed',
-        text2: description,
-      });
+      const description = error instanceof Error ? error.message : 'Unexpected error.';
+      Toast.show({ type: 'error', text1: 'Registration Failed', text2: description });
     } finally {
       setIsSubmitting(false);
     }
@@ -144,113 +114,105 @@ export default function SignupScreen() {
   return (
     <View style={[styles.background, { backgroundColor: theme.background }]}>
       <SafeAreaView style={styles.container}>
-        <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
-          keyboardVerticalOffset={0}
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(1000).springify()}
-              style={styles.heroArea}
-            >
-              <View style={[styles.badge, { borderColor: theme.text }]}>
-                <Text style={[styles.badgeText, { color: theme.text }]}>NEW_USER_PROTOCOL</Text>
-              </View>
-              <Text style={[styles.title, { color: theme.text }]}>REGISTRATION</Text>
-              <Text style={[styles.subtitle, { color: theme.subtleText }]}>Initialize your profile to begin tracking.</Text>
+            <Animated.View entering={FadeInDown.delay(200).duration(1000).springify()} style={styles.header}>
+              <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
+              <Text style={[styles.subtitle, { color: theme.subtleText }]}>
+                Join now to start tracking your finances.
+              </Text>
             </Animated.View>
 
-            <Animated.View
-              entering={FadeInUp.delay(400).duration(1000).springify()}
-              style={{ gap: 20 }}
-            >
-              <Animated.View entering={FadeInDown.delay(600).duration(800)} style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: theme.subtleText }]}>FULL_NAME</Text>
+            <Animated.View entering={FadeInUp.delay(400).duration(1000).springify()} style={styles.form}>
+              <Animated.View entering={FadeInDown.delay(600).duration(800)} style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Full Name</Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="USER_01"
+                  placeholder="John Doe"
                   placeholderTextColor={theme.inputPlaceholder}
                   autoCapitalize="words"
-                  selectionColor={theme.tint}
-                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                 />
               </Animated.View>
-              <Animated.View entering={FadeInDown.delay(700).duration(800)} style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: theme.subtleText }]}>EMAIL_ADDRESS</Text>
+
+              <Animated.View entering={FadeInDown.delay(700).duration(800)} style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Email Address</Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="user@clarity.io"
+                  placeholder="name@example.com"
                   placeholderTextColor={theme.inputPlaceholder}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  selectionColor={theme.tint}
-                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                 />
               </Animated.View>
-              <Animated.View entering={FadeInDown.delay(800).duration(800)} style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: theme.subtleText }]}>ACCESS_KEY</Text>
+
+              <Animated.View entering={FadeInDown.delay(800).duration(800)} style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Password</Text>
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="••••••••"
+                  placeholder="At least 8 characters"
                   placeholderTextColor={theme.inputPlaceholder}
                   autoCapitalize="none"
                   secureTextEntry
-                  selectionColor={theme.tint}
-                  style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                 />
               </Animated.View>
+
               <Animated.View entering={FadeInDown.delay(900).duration(800)}>
                 <Pressable
                   style={({ pressed }) => [
                     styles.button,
-                    { backgroundColor: theme.primary, opacity: (isSubmitting || pressed) ? 0.7 : 1 }
+                    { backgroundColor: theme.buttonBackground, opacity: (isSubmitting || pressed) ? 0.8 : 1 }
                   ]}
                   onPress={onSubmit}
-                  disabled={isSubmitting}>
-                  <Text style={[styles.buttonText, { color: theme.primaryText }]}>{isSubmitting ? 'INITIALIZING...' : 'CREATE IDENTITY'}</Text>
+                  disabled={isSubmitting}
+                >
+                  <Text style={[styles.buttonText, { color: theme.buttonText }]}>{isSubmitting ? 'Creating...' : 'Sign Up'}</Text>
                 </Pressable>
               </Animated.View>
 
-              <Animated.View entering={FadeInDown.delay(1000).duration(800)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ height: 1, flex: 1, backgroundColor: theme.divider }} />
-                <Text style={{ color: theme.subtleText, fontSize: 10, fontFamily: 'Courier' }}>ALT_METHOD</Text>
-                <View style={{ height: 1, flex: 1, backgroundColor: theme.divider }} />
+              <Animated.View entering={FadeInDown.delay(1000).duration(800)} style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+                <Text style={[styles.dividerText, { color: theme.subtleText }]}>or</Text>
+                <View style={[styles.divider, { backgroundColor: theme.divider }]} />
               </Animated.View>
 
               <Animated.View entering={FadeInDown.delay(1100).duration(800)}>
                 <Pressable
-                  style={[
-                    styles.socialButton,
-                    {
-                      borderColor: theme.inputBorder,
-                    }
-                  ]}
+                  style={[styles.socialButton, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775' }]}
                   onPress={handleGoogleLogin}
                   disabled={isGoogleSubmitting}
                 >
                   {isGoogleSubmitting ? (
-                    <Text style={[styles.socialButtonText, { color: theme.text }]}>CONNECTING...</Text>
+                    <Text style={[styles.socialButtonText, { color: '#1f1f1f' }]}>Connecting...</Text>
                   ) : (
                     <>
-                      <FontAwesome name="google" size={16} color={theme.text} />
-                      <Text style={[styles.socialButtonText, { color: theme.text }]}>GOOGLE_ID</Text>
+                      <FontAwesome name="google" size={20} color="#DB4437" />
+                      <Text style={[styles.socialButtonText, { color: '#1f1f1f' }]}>Continue with Google</Text>
                     </>
                   )}
                 </Pressable>
               </Animated.View>
 
               <Animated.View entering={FadeInDown.delay(1200).duration(800)} style={styles.footer}>
-                <Text style={[styles.footerText, { color: theme.subtleText }]}>IDENTITY_EXISTS?</Text>
-                <Link href="/login" style={[styles.link, { color: theme.text }]}>ACCESS_LOGIN</Link>
+                <Text style={[styles.footerText, { color: theme.subtleText }]}>Already have an account?</Text>
+                <Link href="/login" replace asChild>
+                  <Pressable>
+                    <Text style={[styles.link, { color: theme.tint }]}>Log In</Text>
+                  </Pressable>
+                </Link>
               </Animated.View>
             </Animated.View>
           </ScrollView>
@@ -272,97 +234,95 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-    justifyContent: 'space-between',
-    gap: 32,
+    padding: 30,
+    justifyContent: 'center',
   },
-  heroArea: {
-    gap: 12,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+  header: {
+    marginBottom: 40,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    lineHeight: 40,
-    fontFamily: 'Poppins_700Bold', // Keep bold for header but consider changing if user wants strictly courier
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    fontSize: 28,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
   },
-  fieldGroup: {
+  form: {
+    gap: 24,
+  },
+  inputGroup: {
     gap: 8,
   },
   label: {
-    fontSize: 10,
-    fontFamily: 'Courier',
-    letterSpacing: 1,
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 4, // Technical corners
+    height: 56,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
     fontSize: 16,
-    fontFamily: 'Courier', // Monospace input for technical feel
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   button: {
-    borderRadius: 4,
-    paddingVertical: 16,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginVertical: 10,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
     fontSize: 14,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
+  socialButton: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+    marginTop: 20,
   },
   footerText: {
-    fontSize: 12,
-    fontFamily: 'Courier',
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   link: {
-    fontSize: 12,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    gap: 12,
-  },
-  socialButtonText: {
     fontSize: 14,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });

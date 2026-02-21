@@ -1,11 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store'; // Import SecureStore
 import SatisfactionService from './satisfactionService';
 
 // Configure how notifications behave when the app is in the foreground
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
         shouldPlaySound: true,
@@ -33,7 +33,7 @@ export async function setupNotifications() {
             name: 'Transactions',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
+            lightColor: '#00311F',
         });
     }
 
@@ -112,17 +112,19 @@ export async function sendSatisfactionNotification(transactionId, merchantName, 
     });
 }
 
+
 /**
  * Handle Notification Response (User Interaction)
+ * Reads token from storage since context might not be available in background
  * @param response - The response object from Expo Notifications
- * @param token - The Auth token to make API calls
+ * @param {string|null} [authToken] - Optional auth token to avoid async lookup
  */
-export async function handleNotificationResponse(response, token) {
+export async function handleNotificationResponse(response, authToken = null) {
     const actionId = response.actionIdentifier;
     const { transactionId } = response.notification.request.content.data;
 
     // Log the interaction for debugging
-    console.log(`🔔 Notification Response: ${actionId}, TxID: ${transactionId}, HasToken: ${!!token}`);
+    console.log(`🔔 Notification Response: ${actionId}, TxID: ${transactionId}`);
 
     if (!transactionId) return;
 
@@ -148,15 +150,16 @@ export async function handleNotificationResponse(response, token) {
     }
 
     if (rating) {
-        if (!token) {
-            console.warn('⚠️ Token missing during notification action. Falling back to in-app prompt.');
-            // Dismiss notification if we're opening the app anyway, or let the app handle it.
-            // But for consistency let's dismiss it.
-            await Notifications.dismissNotificationAsync(response.notification.request.identifier);
-            return { type: 'OPEN_APP', transactionId };
-        }
-
         try {
+            // Get token from argument or SecureStore for background execution
+            const token = authToken || await SecureStore.getItemAsync('authToken');
+
+            if (!token) {
+                console.warn('⚠️ Token missing during notification action.');
+                await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+                return { type: 'OPEN_APP', transactionId };
+            }
+
             await SatisfactionService.createSatisfaction(token, {
                 transactionId,
                 rating,
@@ -174,3 +177,13 @@ export async function handleNotificationResponse(response, token) {
         }
     }
 }
+
+/**
+ * Register global notification listeners
+ * Should be called at app root (index.js)
+ */
+export function registerNotificationListeners() {
+    // Handle background/foreground interactions
+    Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+}
+

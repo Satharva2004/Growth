@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import TransactionService from './transactionService';
-import { parseTransactionSms } from './transactionSmsParser';
+import { parseWithGroq } from './groqService';
 import { sendSatisfactionNotification, setupNotifications } from './notificationService';
 
 // Task MUST be async
@@ -20,20 +20,26 @@ module.exports = async (taskData) => {
         }
 
         // 2. Parse SMS
-        // We reuse the existing parser
-        const parsed = parseTransactionSms(body);
+        // Use Groq to process the message
+        const parsed = await parseWithGroq(body, originatingAddress);
 
         if (parsed && parsed.type === 'debit') {
-            console.log('💸 Background Debit Detected:', parsed.amount);
+            console.log('💸 Background Debit Detected (Groq):', parsed.amount);
 
             // 3. Create Transaction
             const newTxn = await TransactionService.createTransaction(token, {
-                name: parsed.merchant || 'Unknown Purchase',
+                name: parsed.name || 'Unknown Purchase',
                 amount: parsed.amount,
-                category: 'Other',
-                note: `Auto-detected from Background SMS: ${body}`,
+                category: parsed.category || 'Other',
+                note: parsed.note || `Auto-detected from Background SMS`,
+                description: parsed.note, // Some backends might use description
                 is_auto: true,
-                transaction_date: new Date(timestamp).toISOString() // Use SMS timestamp
+                transaction_date: parsed.transaction_date || new Date(timestamp).toISOString(),
+                payment_method: parsed.payment_method,
+                reference_id: parsed.reference_id,
+                source: parsed.source,
+                sms_body: body,
+                image_address: parsed.image_address,
             });
 
             console.log('✅ Background Transaction created:', newTxn.id || newTxn._id);
@@ -43,7 +49,7 @@ module.exports = async (taskData) => {
             if (txnId) {
                 await sendSatisfactionNotification(
                     txnId,
-                    parsed.merchant || 'Unknown Purchase',
+                    parsed.name || 'Unknown Purchase',
                     parsed.amount,
                     { requestPermissions: false } // Important: Don't ask for permissions in background
                 );

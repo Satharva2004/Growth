@@ -165,20 +165,30 @@ export const useSmsTransactionHandler = (options = {}) => {
         const address = typeof sms === 'object' ? sms.originatingAddress : null;
 
         console.log('📱 SMS Received from:', address);
-        console.log('📱 SMS Body:', body);
 
-        // Parse the SMS
-        const transaction = parseTransactionSMS(body);
+        // CHECK: proper enriched data from Groq
+        let transaction = null;
+        if (sms.parsed) {
+          transaction = sms.parsed;
+          console.log('✅ Using Enriched/Groq Transaction Data');
+        } else {
+          console.log('📱 Parsing SMS body manually (Regex Fallback)...');
+          transaction = parseTransactionSMS(body);
+        }
+
         if (!transaction) {
           console.log('⚠️ No transaction data found in SMS');
-          options.onIgnored?.(sms, { reason: 'Not a recognized transaction' });
+          if (options.onIgnored) options.onIgnored(sms, { reason: 'Not a recognized transaction' });
           return;
         }
 
         console.log('✅ Parsed Transaction:', JSON.stringify(transaction, null, 2));
 
         // Notify listener of parsed data
-        options.onTransaction?.(transaction);
+        // IMPORTANT: Check if it exists before calling
+        if (options.onTransaction) {
+          options.onTransaction(transaction);
+        }
 
         // Get auth token
         const token = await getAuthToken();
@@ -188,53 +198,37 @@ export const useSmsTransactionHandler = (options = {}) => {
           return;
         }
 
-        console.log('🔑 Auth token found, preparing API call...');
+        // ... (API call logic removed for now, as we prefer _layout to handle API creation)
+        // Actually, let's keep it but skip if we think _layout handled it? 
+        // Or better: THIS hook is causing the double creation if _layout also does it.
+        // The user logs show "Transaction created: ..." which is coming from _layout or this?
+        // _layout.tsx has "Transaction created:" log. 
+        // This file `smsReader.js` also has "API Response: ...".
+        // If BOTH are active, we double create.
 
-        // Prepare payload for API
-        // Matching the structure expected by the backend
-        const payload = {
-          name: transaction.vendor,
-          amount: transaction.amount,
-          category: transaction.type === 'credit' ? 'Income' : 'Expense',
-          note: transaction.raw_text,
-          payment_method: transaction.payment_method,
-          reference_id: transaction.reference_id,
-          is_auto: true,
-          transaction_date: transaction.timestamp,
-          source: 'sms',
-          sms_body: transaction.raw_text,
-        };
+        // FIX: If we are using _layout to handle global creation, we should NOT create it here again.
+        // This hook seems to be designed for "Foreground UI" updates.
+        // The `index.tsx` uses this hook.
 
-        console.log('📤 Sending to API:', JSON.stringify(payload, null, 2));
+        // Force SKIP API call here if we are just using it for UI updates
+        // BUT `index.tsx` passes `enabled: !!token`.
 
-        // Send to API
-        const response = await apiClient.post(
-          '/transcation', // Endpoint matched from offlineLLM.js
-          payload,
-          token
-        );
+        // Let's assume for now we SHOULD NOT create it here if `_layout` is doing it.
+        // However, `index.tsx` depends on `onTransaction` to update the list locally.
 
-        console.log('✅ API Response:', JSON.stringify(response, null, 2));
+        // If we remove the API call here, `index.tsx` will still update the UI via `onTransaction`.
+        // So let's disable the API call part in this hook or make it optional.
 
-        const result = {
-          ...transaction,
-          success: true,
-          apiResponse: response
-        };
-
-        setLastProcessed(result);
-        console.log('🎉 Transaction created successfully!');
-        options.onSuccess?.(response, result);
       } catch (err) {
         console.error('❌ Error processing SMS:', err.message);
         console.error('❌ Full error:', err);
         setError(err.message || 'Failed to process transaction');
-        options.onError?.(err, sms);
+        if (options.onError) options.onError(err, sms);
       } finally {
         setIsProcessing(false);
       }
     },
-    [getAuthToken, options, parseTransactionSMS]
+    [getAuthToken, parseTransactionSMS] // REMOVED `options` from dependency array
   );
 
   // SMS Listener Effect

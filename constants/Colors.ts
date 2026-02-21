@@ -1,90 +1,114 @@
 
-const pureBlack = '#000000';
-const pureWhite = '#FFFFFF';
-const offBlack = '#0A0A0A';
-const offWhite = '#F0F0F0';
-const wireframeGray = '#333333';
-const accentGreen = '#00311F'; // Deep forest green accent
+// Exact neobank design palette
+// #202020 black | #c9f158 lime | #f2f3f5 bg | #ffffff surface
 
-export default {
+export type CardShadow = {
+    shadowColor: string;
+    shadowOffset: { width: number; height: number };
+    shadowOpacity: number;
+    shadowRadius: number;
+    elevation: number;
+};
+
+export type ThemeColors = {
+    text: string;
+    subtleText: string;
+    background: string;
+    surface: string;
+    secondarySurface: string;
+    primary: string;
+    primaryText: string;
+    accent: string;
+    accentText: string;
+    success: string;
+    error: string;
+    positive: string;
+    negative: string;
+    inputBackground: string;
+    inputPlaceholder: string;
+    tabIconDefault: string;
+    tabIconSelected: string;
+    tint: string;
+    buttonBackground: string;
+    buttonText: string;
+    divider: string;
+    cardShadow: CardShadow;
+};
+
+const SG = {
+    regular: 'SpaceGrotesk_400Regular',
+    medium: 'SpaceGrotesk_500Medium',
+    semiBold: 'SpaceGrotesk_600SemiBold',
+    bold: 'SpaceGrotesk_700Bold',
+};
+
+export const Fonts = SG;
+
+const cardShadowLight: CardShadow = {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+};
+
+const cardShadowDark: CardShadow = {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+};
+
+const Colors: { light: ThemeColors; dark: ThemeColors } = {
     light: {
-        text: pureBlack,
-        background: pureWhite,
-        tint: accentGreen,
-        tabIconDefault: '#ccc',
-        tabIconSelected: accentGreen,
-        // Gradients aren't really part of the wireframe look, but we'll keep a subtle one just in case
-        gradientBackground: [pureWhite, offWhite, '#e5e5e5'],
-
-        // Wireframe Specifics
-        glassBackground: 'transparent',
-        glassBorder: pureBlack,
-        glassShadow: 'transparent',
-
-        buttonGradient: [pureWhite, pureWhite], // Flat
-
-        subtleText: '#666666',
-        accentText: accentGreen,
-        divider: pureBlack,
-
-        surface: pureWhite,
-        cardBorder: pureBlack,
-
-        inputBackground: pureWhite,
-        inputBorder: pureBlack,
-        inputPlaceholder: '#666666',
-
-        badgeBackground: accentGreen,
-        badgeText: pureWhite,
-
-        primary: accentGreen,
-        primaryText: pureWhite,
-
-        // Solana Seeker style specifics
-        wireframeLine: pureBlack,
-        gridDot: '#ddd',
-        secondarySurface: pureWhite,
-        toastSuccess: accentGreen,
-        toastError: pureBlack,
+        text: '#202020',
+        subtleText: '#888888',
+        background: '#f2f3f5',
+        surface: '#ffffff',
+        secondarySurface: '#f2f3f5',
+        primary: '#202020',
+        primaryText: '#ffffff',
+        accent: '#c9f158',
+        accentText: '#202020',
+        success: '#22C55E',
+        error: '#EF4444',
+        positive: '#22C55E',
+        negative: '#202020',
+        inputBackground: '#f2f3f5',
+        inputPlaceholder: '#AAAAAA',
+        tabIconDefault: '#888888',
+        tabIconSelected: '#202020',
+        tint: '#202020',
+        buttonBackground: '#202020',
+        buttonText: '#ffffff',
+        divider: '#EBEBEB',
+        cardShadow: cardShadowLight,
     },
     dark: {
-        text: pureWhite,
-        background: pureBlack,
-        tint: accentGreen,
-        tabIconDefault: '#555',
-        tabIconSelected: accentGreen,
-        // Deep black gradient (essentially flat)
-        gradientBackground: [pureBlack, pureBlack, offBlack],
-
-        // Wireframe Specifics
-        glassBackground: 'transparent', // or 'rgba(0,0,0,0.5)' if we need readability
-        glassBorder: pureWhite,
-        glassShadow: 'transparent',
-
-        buttonGradient: [pureBlack, pureBlack], // Flat
-
-        subtleText: '#AAAAAA',
-        accentText: accentGreen,
-        divider: pureWhite,
-
-        surface: pureBlack,
-        cardBorder: pureWhite,
-
-        inputBackground: pureBlack,
-        inputBorder: pureWhite,
-        inputPlaceholder: '#666',
-
-        badgeBackground: accentGreen,
-        badgeText: pureWhite,
-
-        primary: accentGreen,
-        primaryText: pureWhite,
-
-        // Solana Seeker style specifics
-        wireframeLine: pureWhite,
-        gridDot: '#333',
-        secondarySurface: pureBlack,
-        toastSuccess: accentGreen,
-        toastError: pureWhite,
+        text: '#F0F4FF',
+        subtleText: '#8892A4',
+        background: '#0D1117',
+        surface: '#161B25',
+        secondarySurface: '#1E2535',
+        primary: '#c9f158',
+        primaryText: '#202020',
+        accent: '#c9f158',
+        accentText: '#202020',
+        success: '#4ADE80',
+        error: '#F87171',
+        positive: '#c9f158',
+        negative: '#F87171',
+        inputBackground: '#1E2535',
+        inputPlaceholder: '#4A5568',
+        tabIconDefault: '#4A5568',
+        tabIconSelected: '#c9f158',
+        tint: '#c9f158',
+        buttonBackground: '#c9f158',
+        buttonText: '#202020',
+        divider: '#2A3347',
+        cardShadow: cardShadowDark,
     },
 };
+
+export default Colors;

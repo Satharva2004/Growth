@@ -3,6 +3,10 @@ import { ExpoRoot } from 'expo-router';
 // Import the background task
 import smsTask from './utils/smsTask';
 import { name as appName } from './app.json';
+import { registerNotificationListeners } from './utils/notificationService';
+
+// Initialize Notification Listeners immediately
+registerNotificationListeners();
 
 // Must be a require in older valid headless setups, but import is fine usually.
 // Register the Headless Task

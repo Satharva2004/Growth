@@ -54,7 +54,17 @@
             }
           }
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/unnamed.png",
+          "color": "#00311F"
+        }
+      ],
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
