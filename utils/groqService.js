@@ -1,5 +1,5 @@
 
-const GROQ_API_KEY = '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';
+const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 /**
@@ -101,7 +101,7 @@ EXAMPLE OUTPUT:
  */
 const getLogoUrl = (merchantName, domain) => {
     if (domain) {
-        const LOGO_DEV_PUBLIC_KEY = 'pk_E-iGHCFHROKCNweyfg2l2A';
+        const LOGO_DEV_PUBLIC_KEY = process.env.EXPO_PUBLIC_LOGO_DEV_PUBLIC_KEY;
         return `https://img.logo.dev/${domain}?token=${LOGO_DEV_PUBLIC_KEY}`;
     }
     // Fallback: Use UI Avatars with valid URL encoding

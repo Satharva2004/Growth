@@ -1,5 +1,5 @@
-const GOOGLE_API_KEY = 'AIzaSyCuCmKc12WviHQbLd2fNmVuH0T1Ky_nS8c'; // USER_PROVIDED_KEY
-const GOOGLE_CSE_ID = '428582393615-m5pnc9ns5svlde7vf30kh82e4fv2cpk3.apps.googleusercontent.com'; // USER_PROVIDED_ID
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY; // USER_PROVIDED_KEY
+const GOOGLE_CSE_ID = process.env.EXPO_PUBLIC_GOOGLE_CSE_ID; // USER_PROVIDED_ID
 const GOOGLE_SEARCH_URL = 'https://www.googleapis.com/customsearch/v1';
 
 /**

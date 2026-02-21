@@ -27,7 +27,7 @@ export default function SignupScreen() {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '428582393615-r0h05a56835aj1q34s4bhgn64jk67vnv.apps.googleusercontent.com',
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
       scopes: ['profile', 'email'],
     });
