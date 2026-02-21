@@ -2,10 +2,6 @@ import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
 import { useSms } from '../hooks/useSms';
 
-/**
- * Simple SMS List Component using the useSms hook
- * Demonstrates easy integration of react-native-get-sms-android
- */
 const SimpleSmsExample = () => {
     const {
         messages,
