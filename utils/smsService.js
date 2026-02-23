@@ -1,6 +1,6 @@
 import SmsAndroid from 'react-native-get-sms-android';
 import SmsListener from 'react-native-android-sms-listener';
-import { DeviceEventEmitter, Platform, NativeModules } from 'react-native';
+import { DeviceEventEmitter, Platform, NativeModules, AppState } from 'react-native';
 import errorHandler from './errorHandler';
 
 /**
@@ -14,8 +14,52 @@ class SmsService {
         this.deliveryListener = null;
         this.errorListener = null;
         this.smsListeners = []; // Array of callback functions
+        this._recentBodies = new Map(); // body-hash → timestamp, for dedup
+        this._appStateSubscription = null;
         this.setupNativeErrorListener();
         this.setupDirectSmsListener();
+        this._watchAppState();
+    }
+
+    /**
+     * Re-initialize native monitoring whenever the app comes to the foreground.
+     * This ensures the listener is alive even after the app was in background
+     * for a long time (screen off, Doze mode, etc.)
+     */
+    _watchAppState() {
+        if (Platform.OS !== 'android') return;
+        this._appStateSubscription = AppState.addEventListener('change', (nextState) => {
+            if (nextState === 'active') {
+                console.log('📲 [SmsService] App foregrounded — re-pinging native module');
+                try {
+                    if (NativeModules.DirectSmsModule) {
+                        NativeModules.DirectSmsModule.startMonitoring();
+                    }
+                } catch (e) {
+                    console.warn('[SmsService] Could not restart native monitor:', e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Simple deduplication: returns true if this SMS body was seen within the
+     * last 3 seconds (prevents double-fires from duplicate native events).
+     */
+    _isDuplicate(body) {
+        const key = (body || '').slice(0, 80);
+        const now = Date.now();
+        if (this._recentBodies.has(key)) {
+            const last = this._recentBodies.get(key);
+            if (now - last < 3000) return true; // within 3 s → duplicate
+        }
+        this._recentBodies.set(key, now);
+        // Prune map to prevent memory leak
+        if (this._recentBodies.size > 50) {
+            const oldest = [...this._recentBodies.entries()].sort((a, b) => a[1] - b[1])[0];
+            this._recentBodies.delete(oldest[0]);
+        }
+        return false;
     }
 
     // ...
@@ -37,54 +81,36 @@ class SmsService {
         }
 
         DeviceEventEmitter.addListener('onDirectSmsReceived', async (event) => {
-            console.log('📩 [DIRECT SMS RECEIVED]', JSON.stringify(event, null, 2));
+            console.log('📩 [DIRECT SMS RECEIVED]', event.originatingAddress);
 
-            // Notify all registered listeners specific to RAW events if needed
-            // But we prefer enriched events.
+            // ── Deduplication guard ──────────────────────────────────────────
+            if (this._isDuplicate(event.body)) {
+                console.log('⏭️ [SmsService] Duplicate SMS event, skipping.');
+                return;
+            }
 
             try {
                 const { parseWithGroq } = require('./groqService');
                 const transaction = await parseWithGroq(event.body, event.originatingAddress);
 
-                if (transaction) {
-                    console.log('💰 Valid Transaction Detected:', JSON.stringify(transaction));
+                if (transaction && transaction.amount) {
+                    console.log('💰 Valid Transaction Detected:', transaction.name, transaction.amount);
 
-                    const enrichedEvent = {
-                        ...event,
-                        parsed: transaction
-                    };
+                    const enrichedEvent = { ...event, parsed: transaction };
 
                     this.smsListeners.forEach(callback => {
-                        try {
-                            callback(enrichedEvent);
-                        } catch (err) {
-                            console.error('Error in SMS listener callback (enriched):', err);
-                        }
+                        try { callback(enrichedEvent); }
+                        catch (err) { console.error('Error in SMS listener callback:', err); }
                     });
                 } else {
-                    // If not a transaction, we might still want to emit the raw event?
-                    // For now, let's emit raw event if NO transaction found, or maybe always?
-                    // To be safe and consistent with previous behavior of "listening to everything":
+                    // Not a transaction — forward raw so UI can ignore it
                     this.smsListeners.forEach(callback => {
-                        try {
-                            // If we didn't parse it, parsed is null
-                            callback({ ...event, parsed: null });
-                        } catch (err) { }
+                        try { callback({ ...event, parsed: null }); }
+                        catch (err) { /* silent */ }
                     });
                 }
             } catch (e) {
                 console.error('Error in auto-parsing SMS:', e);
-            }
-        });
-
-        // Listen for Notification Actions
-        DeviceEventEmitter.addListener('onNotificationAction', (event) => {
-            console.log('🔔 Notification Action Received:', event.action);
-            if (event.action === 'ACCEPT') {
-                console.log('✅ User Accepted Transaction Tracking');
-                // TODO: Add logic to save transaction to database
-            } else if (event.action === 'REJECT') {
-                console.log('❌ User Rejected Transaction Tracking');
             }
         });
     }

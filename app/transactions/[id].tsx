@@ -21,7 +21,6 @@ import Toast from 'react-native-toast-message';
 import Colors, { Fonts as F } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/contexts/AuthContext';
-import SatisfactionService from '@/utils/satisfactionService';
 
 const API_BASE = 'https://goals-backend-brown.vercel.app/api';
 
@@ -105,13 +104,7 @@ export default function TransactionDetailScreen() {
     };
 
     const fetchSatisfaction = async () => {
-        if (!token || !id) return;
-        try {
-            const data = await SatisfactionService.getSatisfaction(token, id as string) as any;
-            if (data) setRating(data.rating);
-        } catch (error) {
-            console.log('No satisfaction record found.');
-        }
+        // No-op: satisfaction removed in favour of category-ask flow
     };
 
     useEffect(() => {
@@ -154,17 +147,19 @@ export default function TransactionDetailScreen() {
     };
 
     const handleRate = async (newRating: number) => {
+        // Store the emoji rating as a local note on the transaction
         if (!token || !id) return;
         try {
             setRating(newRating);
-            await SatisfactionService.createSatisfaction(token, {
-                transactionId: id as string,
-                rating: newRating,
-                note: ''
+            const ratingLabel = newRating === 5 ? 'Worth it 😍' : newRating === 4 ? 'Good 🙂' : newRating === 3 ? 'Ok 😐' : newRating === 2 ? 'Meh 😕' : 'Regret 😡';
+            await fetch(`${API_BASE}/transcation/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ note: `${ratingLabel} — ${note}`.trim() }),
             });
-            Toast.show({ type: 'success', text1: 'Rated', text2: 'Feedback recorded.' });
+            Toast.show({ type: 'success', text1: 'Rated', text2: 'Feedback saved.' });
         } catch (error) {
-            Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to rate.' });
+            Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to save rating.' });
         }
     };
 

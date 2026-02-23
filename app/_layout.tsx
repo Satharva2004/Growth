@@ -17,7 +17,11 @@ import 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 
 import * as Notifications from 'expo-notifications';
-import { sendSatisfactionNotification, handleNotificationResponse, setupNotifications } from '@/utils/notificationService';
+import {
+  sendCategoryNotification,
+  handleNotificationResponse,
+  setupNotifications,
+} from '@/utils/notificationService';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SatisfactionProvider, useSatisfaction } from '@/contexts/SatisfactionContext';
@@ -28,8 +32,8 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/ modal` keeps a back button present.
-  initialRouteName: 'login',
+  // Ensure that reloading on `/modal` keeps a back button present.
+  initialRouteName: 'index',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -84,39 +88,47 @@ function RootLayoutNav() {
     tokenRef.current = token;
   }, [token]);
 
-  // Setup Notifications on mount
+  // ── Setup Notifications on mount ───────────────────────────────────────────
   useEffect(() => {
     setupNotifications();
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationResponse(response, tokenRef.current).then((result) => {
-        if (result && result.type === 'OPEN_APP' && result.transactionId) {
-          // If user tapped the notification body, prompt them in-app
-          promptForTransaction(result.transactionId);
-        }
+    let subscription: any = null;
+    try {
+      subscription = Notifications.addNotificationResponseReceivedListener(response => {
+        Promise.resolve(handleNotificationResponse(response, tokenRef.current)).then((result: any) => {
+          if (result && result.type === 'OPEN_APP' && result.transactionId) {
+            // Body tap → open transaction in-app for category selection
+            promptForTransaction(result.transactionId);
+          }
+        });
       });
-    });
+    } catch (e) {
+      console.warn('[Layout] Notification listener not available (Expo Go?):', e);
+    }
 
     return () => {
-      subscription.remove();
+      subscription?.remove();
     };
   }, [promptForTransaction]);
 
+  // ── Global SMS listener (foreground) ──────────────────────────────────────
   useEffect(() => {
     const initSmsListener = async () => {
       console.log('🏁 Initializing Global SMS Monitor...');
 
       try {
-        const { PermissionsAndroid, Platform, Alert } = require('react-native');
+        const { PermissionsAndroid, Platform } = require('react-native');
 
         if (Platform.OS === 'android') {
-          // Check permissions first without requesting if possible, but request is safe
           const granted = await PermissionsAndroid.requestMultiple([
             PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-            PermissionsAndroid.PERMISSIONS.READ_SMS
+            PermissionsAndroid.PERMISSIONS.READ_SMS,
           ]);
 
-          const receiveGranted = granted[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED;
+          const receiveGranted =
+            granted[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] ===
+            PermissionsAndroid.RESULTS.GRANTED;
+
           if (!receiveGranted) {
             console.warn('⚠️ RECEIVE_SMS permission denied!');
             return;
@@ -128,59 +140,84 @@ function RootLayoutNav() {
         const unsubscribe = SmsService.addSmsListener(async (msg: any) => {
           console.log('🔔 App Root detected SMS from:', msg.originatingAddress);
 
-          // The event is now enriched with Groq data in 'parsed' field
           const parsed = msg.parsed;
 
-          if (parsed && (parsed.type === 'debit' || parsed.type === 'credit')) {
-            console.log('💸 Transaction Detected (Groq):', parsed.amount);
+          // Only handle confirmed transactions (debit or credit with an amount)
+          if (parsed && parsed.amount && (parsed.type === 'debit' || parsed.type === 'credit')) {
+            console.log('💸 Transaction Detected (Groq):', parsed.amount, parsed.name);
 
             if (token) {
               try {
-                // Dynamic import to avoid cycles or heavy load
                 const TransactionService = require('../utils/transactionService').default;
+                const { markSmsAsProcessed, isSmsProcessed } = require('../utils/offlineStorage');
+
+                // Build fingerprint for foreground dedup
+                const fingerprint = `fg_${msg.originatingAddress}_${parsed.amount}_${parsed.reference_id || Date.now()}`;
+                const alreadyDone = await isSmsProcessed(fingerprint);
+                if (alreadyDone) {
+                  console.log('⏭️ [Layout] Duplicate foreground SMS, skipping.');
+                  return;
+                }
 
                 Toast.show({
                   type: 'info',
                   text1: 'New Transaction Detected',
-                  text2: `Processing ${parsed.name || 'purchase'}...`
+                  text2: `Processing ${parsed.name || 'purchase'}...`,
                 });
 
-                // Create transaction on backend
                 const newTxn = await TransactionService.createTransaction(token, {
                   name: parsed.name || 'Unknown Purchase',
                   amount: parsed.amount,
                   category: parsed.category || 'Other',
-                  note: parsed.note || `Auto - detected from SMS`,
+                  note: `Auto-detected from SMS`,
                   is_auto: true,
                   transaction_date: parsed.transaction_date || new Date().toISOString(),
                   merchant_domain: parsed.merchant_domain,
-                  image_address: parsed.image_address // Pass this if backend supports it, or it will be ignored
+                  image_address: parsed.image_address,
+                  reference_id: parsed.reference_id,
                 });
 
                 console.log('✅ Transaction created:', newTxn.id || newTxn._id);
+                await markSmsAsProcessed(fingerprint);
 
-                // Trigger Interactive Notification
+                // ── Category notification if AI couldn't identify ──────────
                 const txnId = newTxn.id || newTxn._id;
-                if (txnId) {
-                  await sendSatisfactionNotification(
+                const needsCategory =
+                  !parsed.category ||
+                  parsed.category === 'Other' ||
+                  parsed.category === 'other';
+
+                if (txnId && needsCategory) {
+                  await sendCategoryNotification(
                     txnId,
                     parsed.name || 'Unknown Purchase',
-                    parsed.amount
+                    parsed.amount,
                   );
-
-                  // Also prompt in app just in case
-                  promptForTransaction(txnId);
+                } else {
+                  // Open in-app prompt to tag the category
+                  if (txnId) promptForTransaction(txnId);
                 }
               } catch (err) {
                 console.error('❌ Failed to process SMS transaction:', err);
                 Toast.show({
                   type: 'error',
                   text1: 'Transaction Error',
-                  text2: 'Could not save detected transaction.'
+                  text2: 'Could not save detected transaction.',
                 });
               }
             } else {
-              console.log('⚠️ User not logged in, skipping transaction creation.');
+              console.log('⚠️ User not logged in — queuing transaction locally.');
+              const { addToPendingQueue } = require('../utils/offlineStorage');
+              await addToPendingQueue({
+                name: parsed.name || 'Unknown Purchase',
+                amount: parsed.amount,
+                category: parsed.category || 'Other',
+                note: `Auto-detected from SMS`,
+                is_auto: true,
+                transaction_date: parsed.transaction_date || new Date().toISOString(),
+                merchant_domain: parsed.merchant_domain,
+                reference_id: parsed.reference_id,
+              });
             }
           }
         });
@@ -202,6 +239,7 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

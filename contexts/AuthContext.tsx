@@ -57,6 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadToken();
+
+    // Refresh token automatically when app comes back to foreground
+    const { AppState } = require('react-native');
+    const subscription = AppState.addEventListener('change', (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        refreshSession();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadToken = async () => {
@@ -164,16 +176,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ refreshToken }),
       });
 
+      if (response.status === 401 || response.status === 403) {
+        // Explicit unauthorized — token is truly dead
+        console.warn('Refresh token expired/invalid. Logging out.');
+        await persistTokens(null, null);
+        await updateProfile(null);
+        return null;
+      }
+
       if (!response.ok) {
-        throw new Error('Failed to refresh session');
+        // Some other server error (500, 502, etc.)
+        // DO NOT log out. Just keep the old token and try again later.
+        console.warn(`Refresh failed with status ${response.status}. Keeping session.`);
+        return token;
       }
 
       const result = await response.json();
       const newAccessToken = result.accessToken || result.token;
-      const newRefresh = result.refreshToken;
+      const newRefresh = result.refreshToken || refreshToken; // fallback to old one if not provided
 
-      if (!newAccessToken || !newRefresh) {
-        throw new Error('Invalid refresh response');
+      if (!newAccessToken) {
+        throw new Error('Invalid refresh response: missing token');
       }
 
       if (result.user) {
@@ -187,10 +210,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await persistTokens(newAccessToken, newRefresh);
       return newAccessToken;
     } catch (error) {
-      console.error('Refresh session error:', error);
-      await persistTokens(null, null);
-      await updateProfile(null);
-      return null;
+      // Network error (timeout, offline, etc.)
+      // DO NOT log out. Just return the current token.
+      console.warn('Network error during refresh. Keeping session active.');
+      return token;
     }
   };
 

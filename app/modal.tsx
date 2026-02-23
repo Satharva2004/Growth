@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontFamily: 'Poppins_700Bold',
   },
   separator: {
     height: 1,
@@ -68,16 +68,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoLabel: {
-    fontFamily: 'SpaceGrotesk_500Medium',
+    fontFamily: 'Poppins_500Medium',
     fontSize: 14,
   },
   infoValue: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 14,
   },
   footer: {
     marginTop: 20,
-    fontFamily: 'SpaceGrotesk_400Regular',
+    fontFamily: 'Poppins_400Regular',
     fontSize: 12,
     textAlign: 'center',
   }
