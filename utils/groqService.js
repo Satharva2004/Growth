@@ -59,7 +59,7 @@ SMS: "Dear Customer, Rs.3,599.00 has been debited from A/c XX4821 at JIO on
 Sender: VM-HDFCBK
 → REAL TRANSACTION ✓ (has A/c ref + past-tense debit + balance)
 → {"is_transaction":true,"name":"Jio","amount":3599,"category":"Bills",
-   "type":"debit","payment_method":"NetBanking","source":"HDFC Bank"}
+   "type":"debit","merchant_domain":"jio.com","payment_method":"NetBanking","source":"HDFC Bank"}
 
 SMS: "Recharge now with Jio's best plans! ₹899/28 days unlimited.
      ₹2,025/84 days. ₹3,599/annual. Click to recharge: jio.com/offer"
@@ -72,7 +72,7 @@ SMS: "UPI payment of Rs.114.00 to Rapido Auto is successful.
 Sender: AX-AXISBK
 → REAL TRANSACTION ✓ (past-tense "successful" + UPI Ref)
 → {"is_transaction":true,"name":"Rapido","amount":114,"category":"Travel",
-   "type":"debit","payment_method":"UPI","reference_id":"503821749261","source":"Axis Bank"}
+   "type":"debit","merchant_domain":"rapido.xyz","payment_method":"UPI","reference_id":"503821749261","source":"Axis Bank"}
 
 SMS: "Get Rapido ride credits worth ₹150! Use code RIDE150 before 28 Feb.
      T&C apply. Reply STOP to opt out."
@@ -85,7 +85,7 @@ SMS: "Rs.150.00 debited from your account via UPI to Mangesh Shahdev
 Sender: VK-SBIPSG
 → REAL TRANSACTION ✓ (past-tense debited + UPI Ref)
 → {"is_transaction":true,"name":"Mangesh Shahdev","amount":150,"category":"Transfer",
-   "type":"debit","payment_method":"UPI","reference_id":"318204759021","source":"SBI"}
+   "type":"debit","merchant_domain":null,"payment_method":"UPI","reference_id":"318204759021","source":"SBI"}
 
 SMS: "Congratulations! Your Jio recharge of ₹899 is DUE tomorrow.
      Recharge now to avoid service interruption."
@@ -106,7 +106,7 @@ Return ONLY a raw JSON object (no markdown). Schema when is_transaction=true:
   "amount": <number, no commas>,
   "category": "<Food|Travel|Shopping|Bills|Entertainment|Health|Transfer|Income|Investment|Other>",
   "type": "<debit|credit>",
-  "merchant_domain": "<domain.com or null>",
+  "merchant_domain": "<REQUIRED for businesses: domain.com (e.g. zomato.com, swiggy.com, amzn.in, uber.com, jio.com, airtel.in). Use null for individuals.>",
   "payment_method": "<UPI|Card|NetBanking|Wallet|Cash|null>",
   "reference_id": "<UTR/UPI Ref/Txn ID or null>",
   "transaction_date": "<ISO8601 or null>",
@@ -191,7 +191,7 @@ export const parseWithGroq = async (smsBody, sender) => {
 
 /* ─── logo helper ────────────────────────────────────────────────────────── */
 
-const getLogoUrl = (merchantName, domain) => {
+export const getLogoUrl = (merchantName, domain) => {
     if (domain) {
         const key = process.env.EXPO_PUBLIC_LOGO_DEV_PUBLIC_KEY;
         return `https://img.logo.dev/${domain}?token=${key}`;

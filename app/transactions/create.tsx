@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 
 import Colors, { Fonts as F } from '@/constants/Colors';
@@ -17,6 +18,7 @@ import {
   stopRecording,
   transcribeAndParse,
 } from '@/utils/voiceTransactionService';
+import { getLogoUrl } from '@/utils/groqService';
 
 const API_BASE = 'https://goals-backend-brown.vercel.app/api';
 
@@ -92,10 +94,10 @@ function VoiceButton({
             theme.primary;
 
   const icon =
-    voiceState === 'processing' ? 'spinner' :
+    voiceState === 'processing' ? 'circle-outline' :
       voiceState === 'done' ? 'check' :
-        voiceState === 'error' ? 'times' :
-          'microphone';
+        voiceState === 'error' ? 'alert-circle-outline' :
+          'waveform';
 
   return (
     <View style={voiceStyles.wrapper}>
@@ -111,10 +113,10 @@ function VoiceButton({
         <Animated.View style={[voiceStyles.btn, { backgroundColor: bgColor, transform: [{ scale }] }]}>
           {voiceState === 'processing' ? (
             <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <FontAwesome name="circle-o-notch" size={28} color="#fff" />
+              <MaterialCommunityIcons name="loading" size={32} color="#fff" />
             </Animated.View>
           ) : (
-            <FontAwesome name={icon} size={28} color="#fff" />
+            <MaterialCommunityIcons name={icon as any} size={32} color="#fff" />
           )}
         </Animated.View>
       </Pressable>
@@ -262,6 +264,7 @@ export default function CreateTransactionScreen() {
           note: note.trim() || undefined,
           transaction_date: new Date(date).toISOString(),
           payment_method: paymentMethod || 'Cash',
+          image_address: getLogoUrl(name.trim()),
           is_auto: false,
         }),
       });

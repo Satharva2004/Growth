@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import Colors, { Fonts as F } from '@/constants/Colors';
@@ -92,12 +93,13 @@ export default function TransactionsScreen() {
     const [balanceHidden, setBalanceHidden] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const todayKey = new Date().toISOString().slice(0, 10);
+    // Today's spend calculation using local time boundary
+    const todayKey = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
     const todaySpend = useMemo(() => {
         return transactions
             .filter(t => {
                 const d = t.transaction_date ? new Date(t.transaction_date) : new Date();
-                return d.toISOString().slice(0, 10) === todayKey
+                return d.toLocaleDateString('en-CA') === todayKey
                     && t.category?.toLowerCase() !== 'income';
             })
             .reduce((s, t) => s + t.amount, 0);
@@ -415,7 +417,7 @@ export default function TransactionsScreen() {
                             ]}
                             onPress={() => router.push({ pathname: '/transactions/create', params: { autoVoice: 'true' } })}
                         >
-                            <FontAwesome name="microphone" size={18} color={theme.accentText} />
+                            <MaterialCommunityIcons name="waveform" size={20} color={theme.accentText} />
                         </Pressable>
 
                         {/* ── SYNC BUTTON ── */}
